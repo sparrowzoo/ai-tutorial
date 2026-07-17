@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>正则化 · 3D可视化 · L1 vs L2</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background: #0b1120;
+            font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: #0f172a;
+            border-radius: 24px;
+            padding: 24px 28px 20px 28px;
+            border: 1px solid #1e293b;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .header h2 {
+            color: #f1f5f9;
+            font-weight: 600;
+            font-size: 22px;
+            letter-spacing: -0.3px;
+        }
+        .header .badge {
+            color: #94a3b8;
+            font-size: 13px;
+            background: #1e293b;
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid #2a3a5a;
+        }
+        .viz-container {
+            background: #0b1120;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #1e293b;
+        }
+        .viz-container canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+            background: #0b1120;
+        }
+        .caption {
+            text-align: center;
+            padding: 10px 0 4px 0;
+            color: #94a3b8;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+            border-top: 1px solid #1e293b;
+            background: #0b1120;
+        }
+        .caption strong { color: #e2e8f0; }
+        .caption .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 4px; }
+        .dot.l1 { background: #f97316; }
+        .dot.l2 { background: #3b82f6; }
+        .dot.opt { background: #22c55e; }
+        .dot.contour { background: #ef4444; }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .footer {
+            margin-top: 14px;
+            color: #475569;
+            font-size: 13px;
+            text-align: center;
+            border-top: 1px solid #1e293b;
+            padding-top: 14px;
+        }
+        .line-sample {
+            display: inline-block;
+            width: 24px;
+            height: 3px;
+            border-radius: 2px;
+            background: #ef4444;
+        }
+        /* 控制提示 */
+        .hint {
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 6px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h2>🎯 L1 vs L2 · 损失等高线 + 正则化禁区</h2>
+        <span class="badge">🖱 拖拽旋转 · 滚轮缩放</span>
+    </div>
+
+    <div class="viz-container">
+        <canvas id="regCanvas" width="1200" height="675"></canvas>
+        <div class="caption">
+            <span class="dot contour"></span> <strong style="color:#ef4444;">损失函数等高线（亮红 · 加粗）</strong> &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="dot l2"></span> <strong>L2 禁区（球）</strong> · 等高线相切 &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="dot l1"></span> <strong>L1 禁区（八面体）</strong> · 等高线撞尖角 &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span class="dot opt"></span> <strong>★ 最优解</strong>
+        </div>
+    </div>
+
+    <div class="legend">
+        <span class="legend-item"><span class="line-sample"></span> 损失函数等高线（亮红 · 加粗）</span>
+        <span class="legend-item"><span class="dot l2"></span> L2 球形禁区</span>
+        <span class="legend-item"><span class="dot l1"></span> L1 八面体禁区</span>
+        <span class="legend-item"><span class="dot opt"></span> 最优解位置</span>
+    </div>
+    <div class="footer">
+        左侧：L2 正则化 · 右侧：L1 正则化 · 等高线为椭圆形（模拟真实数据）
+        <div class="hint">🖱 拖拽旋转 · 滚轮缩放 · 双击重置视角</div>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const canvas = document.getElementById('regCanvas');
+const aspect = canvas.width / canvas.height;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1120);
+
+const camera = new THREE.PerspectiveCamera(38, aspect, 0.1, 20);
+camera.position.set(5.0, 3.2, 7.0);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(canvas.width, canvas.height, false);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0, 0);
+controls.autoRotate = false;  // 关闭自动旋转
+controls.update();
+
+scene.add(new THREE.AmbientLight(0x334466, 0.6));
+const dl = new THREE.DirectionalLight(0xffffff, 1.6);
+dl.position.set(3, 5, 4);
+scene.add(dl);
+scene.add(new THREE.DirectionalLight(0x4488cc, 0.5).position.set(-3, 2, -4));
+
+// ===== 等高线 ===== 全部统一为亮红色 #ef4444，加粗
+// WebGL 线宽限制，用双层线叠加模拟加粗效果
+const CONTOUR_COLOR = 0xef4444;
+
+function createContourLines(cx, cy, count = 6, maxR = 2.2, stretch = 1.0) {
+    const group = new THREE.Group();
+    for (let k = 1; k <= count; k++) {
+        const r = (k / count) * maxR;
+        const pts = [];
+        for (let i = 0; i <= 64; i++) {
+            const theta = (i / 64) * Math.PI * 2;
+            const ex = 0.85 + 0.15 * Math.sin(theta * 0.7);
+            const ey = 0.75 + 0.25 * Math.cos(theta * 0.5);
+            const x = cx + r * ex * Math.cos(theta) * stretch;
+            const y = cy + r * ey * Math.sin(theta);
+            pts.push(new THREE.Vector3(x, y, 0));
+        }
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const opacity = 0.50 + 0.15 * (count - k) / count;
+
+        // 主线条
+        const mat = new THREE.LineBasicMaterial({
+            color: CONTOUR_COLOR,
+            transparent: true,
+            opacity: opacity,
+        });
+        const line = new THREE.Line(geo, mat);
+        group.add(line);
+
+        // 叠加半透明层 → 视觉上加粗
+        const glowMat = new THREE.LineBasicMaterial({
+            color: CONTOUR_COLOR,
+            transparent: true,
+            opacity: opacity * 0.35,
+        });
+        const glowLine = new THREE.Line(geo.clone(), glowMat);
+        group.add(glowLine);
+    }
+    return group;
+}
+
+// 左侧 L2 侧
+scene.add(createContourLines(-1.8, 0.2, 6, 2.0, 1.0));
+// 右侧 L1 侧
+scene.add(createContourLines(1.8, -0.2, 6, 2.0, 0.9));
+
+// 3D 深度等高线（透明度降低，作为背景层次）
+for (let z = -0.5; z <= 0.5; z += 0.5) {
+    const c1 = createContourLines(-1.8, 0.2, 4, 1.6, 1.0);
+    c1.position.z = z;
+    c1.children.forEach(l => l.material.opacity *= 0.30);
+    scene.add(c1);
+    const c2 = createContourLines(1.8, -0.2, 4, 1.6, 0.9);
+    c2.position.z = z;
+    c2.children.forEach(l => l.material.opacity *= 0.30);
+    scene.add(c2);
+}
+
+// ===== L2 球 =====
+const sGeo = new THREE.SphereGeometry(1.4, 48, 48);
+const sMat = new THREE.MeshPhongMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.10 });
+const sphere = new THREE.Mesh(sGeo, sMat);
+sphere.position.set(-1.8, 0, 0);
+scene.add(sphere);
+
+const wGeo = new THREE.SphereGeometry(1.4, 20, 20);
+const wMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, wireframe: true, transparent: true, opacity: 0.25 });
+const wSphere = new THREE.Mesh(wGeo, wMat);
+wSphere.position.set(-1.8, 0, 0);
+scene.add(wSphere);
+
+for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+    const pts = [];
+    for (let i = 0; i <= 40; i++) {
+        const t = (i / 40) * Math.PI * 2;
+        const x = -1.8 + 1.4 * Math.cos(t) * Math.cos(a);
+        const y = 1.4 * Math.sin(t);
+        const z = 1.4 * Math.cos(t) * Math.sin(a);
+        pts.push(new THREE.Vector3(x, y, z));
+    }
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.10 })));
+}
+
+// ===== L1 八面体 =====
+const d = 1.4;
+const makeDiamond = (cx, cy, cz, plane, opacity = 1.0) => {
+    const pts = [];
+    for (let i = 0; i <= 44; i++) {
+        const t = (i / 44) * Math.PI * 2;
+        const r = d / (Math.abs(Math.cos(t)) + Math.abs(Math.sin(t)));
+        if (plane === 'xy') pts.push(new THREE.Vector3(cx + r * Math.cos(t), cy + r * Math.sin(t), cz));
+        else if (plane === 'xz') pts.push(new THREE.Vector3(cx + r * Math.cos(t), cy, cz + r * Math.sin(t)));
+        else pts.push(new THREE.Vector3(cx, cy + r * Math.cos(t), cz + r * Math.sin(t)));
+    }
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    return new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xf97316, transparent: true, opacity }));
+};
+scene.add(makeDiamond(1.8, 0, 0, 'xy', 1.0));
+scene.add(makeDiamond(1.8, 0, 0, 'xz', 0.30));
+scene.add(makeDiamond(1.8, 0, 0, 'yz', 0.18));
+
+const corners = [[1.8+d,0,0],[1.8-d,0,0],[1.8,d,0],[1.8,-d,0],[1.8,0,d],[1.8,0,-d]];
+corners.forEach(p => {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
+    dot.position.set(p[0], p[1], p[2]);
+    scene.add(dot);
+});
+
+// ===== 最优解 =====
+const optL2 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 0.3 })
+);
+optL2.position.set(-1.8 + 1.4 * 0.65, 0.3, 1.4 * 0.65);
+scene.add(optL2);
+
+const optL1 = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 0.3 })
+);
+optL1.position.set(1.8 + d, 0, 0);
+scene.add(optL1);
+
+const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.12 })
+);
+glow.position.copy(optL1.position);
+scene.add(glow);
+
+// ===== 标签 =====
+function makeLabel(text, pos, color = '#ffffff', size = 0.8) {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 256, 64);
+    ctx.font = 'bold 26px Arial, "PingFang SC"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.95)'; ctx.shadowBlur = 14;
+    ctx.fillStyle = color;
+    ctx.fillText(text, 128, 36);
+    const texture = new THREE.CanvasTexture(c);
+    const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.position.copy(pos);
+    sprite.scale.set(size, size * 0.3, 1);
+    scene.add(sprite);
+}
+makeLabel('L2 禁区 (球)', new THREE.Vector3(-1.8, 2.2, 0), '#3b82f6', 0.9);
+makeLabel('L1 禁区 (八面体)', new THREE.Vector3(1.8, 2.2, 0), '#f97316', 0.9);
+makeLabel('★ 相切点', new THREE.Vector3(-0.8, 1.5, 1.6), '#22c55e', 0.7);
+makeLabel('★ 顶点 (稀疏)', new THREE.Vector3(2.8, 0.8, 0.6), '#22c55e', 0.7);
+makeLabel('损失等高线', new THREE.Vector3(-2.8, 1.6, 0.6), '#ef4444', 0.65);
+makeLabel('损失等高线', new THREE.Vector3(2.8, 1.6, 0.6), '#ef4444', 0.65);
+
+// ===== 地面 =====
+const grid = new THREE.GridHelper(6, 14, 0x2a3a5a, 0x15203a);
+grid.position.y = -1.7;
+scene.add(grid);
+
+const makeAxis = (dir, color) => {
+    scene.add(new THREE.ArrowHelper(dir, new THREE.Vector3(0, -1.7, 0), 2.6, color, 0.2, 0.12));
+};
+makeAxis(new THREE.Vector3(1,0,0), 0xff6666);
+makeAxis(new THREE.Vector3(0,1,0), 0x66ff88);
+makeAxis(new THREE.Vector3(0,0,1), 0x66aaff);
+
+// ===== 动画 =====
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+
+// ===== 窗口自适应 =====
+window.addEventListener('resize', () => {
+    const w = canvas.width, h = canvas.height;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+});
+
+// ===== 双击重置视角 =====
+renderer.domElement.addEventListener('dblclick', () => {
+    camera.position.set(5.0, 3.2, 7.0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+});
+</script>
+</body>
+</html>

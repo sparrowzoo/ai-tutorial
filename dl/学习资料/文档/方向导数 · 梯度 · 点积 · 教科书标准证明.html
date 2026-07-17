@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方向导数 · 梯度 · 点积 · 教科书标准证明</title>
+    <!-- 使用 KaTeX 渲染 Markdown 公式 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true},{left: '$', right: '$', display: false}]});"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Times New Roman', '宋体', 'SimSun', serif;
+            background: #fcf9f2;
+            color: #1a1a1a;
+            padding: 40px 20px;
+            line-height: 1.8;
+            counter-reset: theorem 0 definition 0 proof 0 corollary 0;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 50px 60px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+            border-radius: 4px;
+        }
+        h1 {
+            font-size: 2.4rem;
+            text-align: center;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #1a1a2e;
+            border-bottom: 3px double #c9b99a;
+            padding-bottom: 18px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-top: 40px;
+            margin-bottom: 16px;
+            color: #2c3e50;
+            border-left: 6px solid #8b6f47;
+            padding-left: 18px;
+        }
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 28px;
+            margin-bottom: 10px;
+            color: #34495e;
+        }
+        p {
+            text-align: justify;
+            margin-bottom: 14px;
+            font-size: 1.05rem;
+        }
+        .theorem-box, .definition-box, .proof-box, .corollary-box {
+            background: #f8f6f0;
+            border-left: 6px solid #8b6f47;
+            padding: 18px 28px;
+            margin: 22px 0;
+            border-radius: 0 6px 6px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .theorem-box { border-left-color: #1a5276; background: #eaf2f8; }
+        .definition-box { border-left-color: #7d6608; background: #fcf9e8; }
+        .proof-box { border-left-color: #1e8449; background: #eafaf1; }
+        .corollary-box { border-left-color: #7b2d26; background: #fdedec; }
+        .theorem-box strong, .definition-box strong, .proof-box strong, .corollary-box strong {
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        .math-block {
+            display: block;
+            text-align: center;
+            padding: 14px 0;
+            font-size: 1.2rem;
+            font-family: 'Times New Roman', 'Cambria', serif;
+            letter-spacing: 0.5px;
+        }
+        .math-inline {
+            font-family: 'Times New Roman', 'Cambria', serif;
+            font-style: italic;
+        }
+        .highlight { background: #f9e79f; padding: 0 6px; border-radius: 2px; }
+        .highlight-red { background: #f5b7b1; padding: 0 6px; border-radius: 2px; }
+        .highlight-blue { background: #aed6f1; padding: 0 6px; border-radius: 2px; }
+        .highlight-green { background: #a9dfbf; padding: 0 6px; border-radius: 2px; }
+        .formula-label { float: right; font-weight: 700; color: #5d6d7e; }
+        ul, ol { padding-left: 28px; margin-bottom: 14px; }
+        ul li, ol li { margin-bottom: 6px; font-size: 1.02rem; }
+        .footer-note { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 0.95rem; color: #5d6d7e; }
+        .sig { font-family: 'Times New Roman', serif; font-style: italic; color: #6c7a89; }
+        .badge {
+            display: inline-block;
+            background: #2c3e50;
+            color: #fff;
+            font-size: 0.75rem;
+            padding: 1px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-right: 8px;
+        }
+        @media (max-width: 700px) {
+            .container { padding: 24px 16px; }
+            h1 { font-size: 1.6rem; }
+            h2 { font-size: 1.3rem; }
+            .math-block { font-size: 1.0rem; overflow-x: auto; }
+            .theorem-box, .proof-box, .definition-box, .corollary-box { padding: 14px 16px; }
+        }
+        .boxed {
+            border: 2px solid #1a1a2e;
+            padding: 6px 18px;
+            display: inline-block;
+            margin: 4px 0;
+            font-weight: 700;
+            background: #fff;
+        }
+        .center { text-align: center; }
+        .mt-2 { margin-top: 20px; }
+        .mb-2 { margin-bottom: 20px; }
+        .katex-display { margin: 0.5em 0; }
+        .katex .mathnormal { font-style: italic; }
+        .proof-box .katex-display { margin: 0.5em 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <h1>📐 方向导数 · 梯度 · 点积<br><span style="font-size:1.2rem;color:#5d6d7e;">教科书标准证明与几何本质</span></h1>
+
+    <!-- ============================================ -->
+    <!-- 第一部分：点积的两种形式 + 余弦定理连接       -->
+    <!-- ============================================ -->
+    <h2>第一部分：点积的两种形式与余弦定理</h2>
+
+    <div class="definition-box">
+        <strong><span class="badge">定义 1</span> 点积的坐标形式（代数定义）</strong>
+        <p>设 $\mathbf{A} = (a_1, a_2)$，$\mathbf{B} = (b_1, b_2)$ 为二维向量。定义它们的 <strong>点积（数量积）</strong>为：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \mathbf{A} \cdot \mathbf{B} = a_1 b_1 + a_2 b_2 \tag{1.1} $$
+        </div>
+        <p>这个定义是 <strong>代数运算规则</strong>，直接给出了计算方法。</p>
+    </div>
+
+    <div class="definition-box">
+        <strong><span class="badge">定义 2</span> 点积的几何形式（几何定义）</strong>
+        <p>设 $\mathbf{A}$，$\mathbf{B}$ 的模长分别为 $|\mathbf{A}|$，$|\mathbf{B}|$，夹角为 $\theta$（$0 \le \theta \le \pi$）。定义点积为：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \mathbf{A} \cdot \mathbf{B} = |\mathbf{A}| \, |\mathbf{B}| \cos\theta \tag{1.2} $$
+        </div>
+        <p><strong>几何意义</strong>：点积 = 一个向量在另一个向量方向上的投影长度 × 被投影向量的模长。</p>
+        <ul>
+            <li><span class="highlight-blue">$|\mathbf{B}|\cos\theta$</span> 是 $\mathbf{B}$ 在 $\mathbf{A}$ 方向上的 <strong>投影长度</strong></li>
+            <li><span class="highlight-green">$|\mathbf{A}|\cos\theta$</span> 是 $\mathbf{A}$ 在 $\mathbf{B}$ 方向上的 <strong>投影长度</strong></li>
+        </ul>
+    </div>
+
+    <div class="theorem-box">
+        <strong><span class="badge">定理 1</span> 点积两种形式的等价性（余弦定理连接）</strong>
+        <p>对于任意向量 $\mathbf{A} = (a_1, a_2)$，$\mathbf{B} = (b_1, b_2)$，有：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ a_1 b_1 + a_2 b_2 = |\mathbf{A}| \, |\mathbf{B}| \cos\theta \tag{1.3} $$
+        </div>
+        <p>即 <strong>坐标形式</strong> 与 <strong>几何形式</strong> 完全等价。</p>
+    </div>
+
+    <div class="proof-box">
+        <strong><span class="badge">证明</span> 定理 1（余弦定理法）</strong>
+        <p><strong>第一步：构造三角形。</strong> 考虑向量 $\mathbf{A} - \mathbf{B}$，其模长的平方为：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ |\mathbf{A} - \mathbf{B}|^2 = (a_1 - b_1)^2 + (a_2 - b_2)^2 \tag{1.4} $$
+        </div>
+
+        <p><strong>第二步：展开坐标表达式。</strong></p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ |\mathbf{A} - \mathbf{B}|^2 = a_1^2 - 2a_1b_1 + b_1^2 + a_2^2 - 2a_2b_2 + b_2^2 $$
+        </div>
+        <div style="text-align:center;padding:8px 0;">
+            $$ = (a_1^2 + a_2^2) + (b_1^2 + b_2^2) - 2(a_1b_1 + a_2b_2) \tag{1.5} $$
+        </div>
+        <p>即：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ |\mathbf{A} - \mathbf{B}|^2 = |\mathbf{A}|^2 + |\mathbf{B}|^2 - 2(a_1b_1 + a_2b_2) \tag{1.6} $$
+        </div>
+
+        <p><strong>第三步：应用余弦定理。</strong> 在由 $\mathbf{A}$、$\mathbf{B}$、$\mathbf{A}-\mathbf{B}$ 构成的三角形中，夹角为 $\theta$，有：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ |\mathbf{A} - \mathbf{B}|^2 = |\mathbf{A}|^2 + |\mathbf{B}|^2 - 2|\mathbf{A}|\,|\mathbf{B}|\cos\theta \tag{1.7} $$
+        </div>
+
+        <p><strong>第四步：对比 (1.6) 与 (1.7)。</strong> 两式左边相同，右边结构相同，因此对应项相等：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \boxed{a_1 b_1 + a_2 b_2 = |\mathbf{A}|\,|\mathbf{B}|\cos\theta} \tag{1.8} $$
+        </div>
+        <p>证毕。 <span class="sig">□</span></p>
+        <p style="margin-top:10px;font-size:0.95rem;color:#2c3e50;"><strong>核心结论</strong>：<span class="highlight">余弦定理</span> 是连接点积 <span class="highlight-blue">坐标形式</span> 与 <span class="highlight-green">几何形式</span> 的桥梁。</p>
+    </div>
+
+    <div class="corollary-box">
+        <strong><span class="badge">推论 1</span> 点积的投影本质</strong>
+        <p>由 (1.2) 直接得到：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \mathbf{A} \cdot \mathbf{B} = |\mathbf{B}| \times (\text{$\mathbf{A}$ 在 $\mathbf{B}$ 上的投影长度}) = |\mathbf{A}| \times (\text{$\mathbf{B}$ 在 $\mathbf{A}$ 上的投影长度}) \tag{1.9} $$
+        </div>
+        <p><strong>即：点积 = 一个向量的模长 × 另一个向量在该方向上的投影长度。</strong></p>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 第二部分：方向导数 → 点积 → 梯度最大值       -->
+    <!-- ============================================ -->
+    <h2>第二部分：方向导数 · 梯度 · 最大值证明</h2>
+
+    <div class="definition-box">
+        <strong><span class="badge">定义 3</span> 方向导数（沿方向 $\mathbf{l}$）</strong>
+        <p>设 $f(x, y)$ 在点 $P(x_0, y_0)$ 处可微，$\mathbf{l} = (\cos\alpha, \sin\alpha)$ 为单位方向向量。则沿 $\mathbf{l}$ 的方向导数为：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ D_{\mathbf{l}} f(x_0, y_0) = f_x(x_0, y_0)\cos\alpha + f_y(x_0, y_0)\sin\alpha \tag{2.1} $$
+        </div>
+        <p>其中 $f_x = \partial f/\partial x$，$f_y = \partial f/\partial y$ 是偏导数。</p>
+    </div>
+
+    <div class="theorem-box">
+        <strong><span class="badge">定理 2</span> 方向导数 = 梯度与方向向量的点积</strong>
+        <p>定义梯度向量 $\nabla f = (f_x, f_y)$，则方向导数可写成：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \boxed{D_{\mathbf{l}} f = \nabla f \cdot \mathbf{l}} \tag{2.2} $$
+        </div>
+    </div>
+
+    <div class="proof-box">
+        <strong><span class="badge">证明</span> 定理 2</strong>
+        <p>根据点积的坐标形式 (1.1)：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \nabla f \cdot \mathbf{l} = (f_x, f_y) \cdot (\cos\alpha, \sin\alpha) = f_x\cos\alpha + f_y\sin\alpha \tag{2.3} $$
+        </div>
+        <p>对比 (2.1) 与 (2.3)，两边完全相等。证毕。 <span class="sig">□</span></p>
+    </div>
+
+    <div class="theorem-box">
+        <strong><span class="badge">定理 3</span> 梯度方向是函数增长最快的方向</strong>
+        <p>在点 $P$ 处，方向导数 $D_{\mathbf{l}} f$ 在 $\mathbf{l}$ 与梯度 $\nabla f$ <strong>同向</strong> 时取得最大值，且最大值为：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \boxed{\max(D_{\mathbf{l}} f) = |\nabla f|} \tag{2.4} $$
+        </div>
+    </div>
+
+    <div class="proof-box">
+        <strong><span class="badge">证明</span> 定理 3（利用点积的几何形式）</strong>
+        <p><strong>第一步：将方向导数写成点积的几何形式。</strong> 由 (2.2) 和 (1.2) 得：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ D_{\mathbf{l}} f = \nabla f \cdot \mathbf{l} = |\nabla f| \, |\mathbf{l}| \cos\theta \tag{2.5} $$
+        </div>
+        <p>其中 $\theta$ 是 $\nabla f$ 与 $\mathbf{l}$ 的夹角。</p>
+
+        <p><strong>第二步：利用单位向量条件。</strong> 因为 $\mathbf{l}$ 是单位方向向量，所以 $|\mathbf{l}| = 1$。于是：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \boxed{D_{\mathbf{l}} f = |\nabla f| \cos\theta} \tag{2.6} $$
+        </div>
+
+        <p><strong>第三步：分析最大值。</strong></p>
+        <ul>
+            <li><span class="highlight-blue">$|\nabla f|$</span> 在点 $P$ 处是 <strong>固定值</strong>（由偏导数决定）</li>
+            <li><span class="highlight-green">$\cos\theta$</span> 的取值范围是 $[-1, 1]$</li>
+            <li>当 $\theta = 0$ 时，$\cos\theta = 1$，达到最大值</li>
+        </ul>
+        <p>因此：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \boxed{\max(D_{\mathbf{l}} f) = |\nabla f| \cdot 1 = |\nabla f|} \tag{2.7} $$
+        </div>
+
+        <p><strong>第四步：确定方向。</strong> $\theta = 0$ 意味着 $\mathbf{l}$ 与 $\nabla f$ <strong>同向</strong>。即：</p>
+        <div style="text-align:center;padding:8px 0;">
+            $$ \mathbf{l} = \frac{\nabla f}{|\nabla f|} \tag{2.8} $$
+        </div>
+        <p>证毕。 <span class="sig">□</span></p>
+        <p style="margin-top:10px;font-size:0.95rem;color:#2c3e50;"><strong>核心结论</strong>：<span class="highlight">梯度方向是函数上升最快的方向</span>，其方向导数等于梯度的模长 <span class="highlight-red">$|\nabla f|$</span>。</p>
+    </div>
+
+    <div class="corollary-box">
+        <strong><span class="badge">推论 2</span> 梯度模长的几何意义</strong>
+        <p>由 (2.6) 知，方向导数 = <span class="highlight-blue">梯度的模长</span> × <span class="highlight-green">夹角余弦</span>。</p>
+        <ul>
+            <li>当 $\theta = 0$（同向）：方向导数 = <span class="highlight-red">$|\nabla f|$</span>（最大）</li>
+            <li>当 $\theta = \pi/2$（垂直）：方向导数 = $0$（等高线方向）</li>
+            <li>当 $\theta = \pi$（反向）：方向导数 = <span class="highlight-red">$-|\nabla f|$</span>（下降最快）</li>
+        </ul>
+        <p><strong>梯度的模长就是方向导数的最大值。</strong></p>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 第三部分：完整逻辑链                         -->
+    <!-- ============================================ -->
+    <h2>第三部分：完整逻辑链</h2>
+
+    <div style="background:#f4f6f7;padding:24px 30px;border-radius:8px;margin:20px 0;">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;font-size:1.05rem;">
+            <span style="background:#1a5276;color:#fff;padding:6px 16px;border-radius:20px;">① 点积坐标形式</span>
+            <span style="font-size:1.8rem;color:#8b6f47;">⇌</span>
+            <span style="background:#1e8449;color:#fff;padding:6px 16px;border-radius:20px;">② 余弦定理</span>
+            <span style="font-size:1.8rem;color:#8b6f47;">⇌</span>
+            <span style="background:#7d6608;color:#fff;padding:6px 16px;border-radius:20px;">③ 点积几何形式</span>
+            <span style="font-size:1.8rem;color:#8b6f47;">→</span>
+            <span style="background:#7b2d26;color:#fff;padding:6px 16px;border-radius:20px;">④ 方向导数 = ∇f·l</span>
+            <span style="font-size:1.8rem;color:#8b6f47;">→</span>
+            <span style="background:#2c3e50;color:#fff;padding:6px 16px;border-radius:20px;">⑤ max = |∇f|</span>
+        </div>
+        <p style="text-align:center;margin-top:16px;font-size:1.0rem;">
+            <strong>点积的两种形式（坐标 ⇌ 几何）由余弦定理连接 → 方向导数化为点积 → 几何形式给出最大值 = 梯度模长</strong>
+        </p>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 第四部分：最终总结                           -->
+    <!-- ============================================ -->
+    <h2>第四部分：最终总结</h2>
+
+    <div style="background:#1a1a2e;color:#eee;padding:28px 34px;border-radius:8px;margin:20px 0;">
+        <p style="font-size:1.15rem;line-height:1.9;color:#eee;text-align:center;">
+            <span style="color:#ffd93d;">点积</span> 有两种形式：<br>
+            <span style="color:#4ecdc4;">坐标形式</span> $a_1b_1 + a_2b_2$ 用于计算，<br>
+            <span style="color:#a29bfe;">几何形式</span> $|\mathbf{A}||\mathbf{B}|\cos\theta$ 用于判断方向。<br><br>
+            <span style="color:#ff6b6b;">余弦定理</span> 是连接这两种形式的桥梁。<br><br>
+            方向导数 <span style="color:#a29bfe;">$D_{\mathbf{l}}f$</span> = <span style="color:#ff6b6b;">$\nabla f$</span> · <span style="color:#a29bfe;">$\mathbf{l}$</span> = <span style="color:#ff6b6b;">$|\nabla f|$</span> · $\cos\theta$<br><br>
+            当 $\theta = 0$ 时，方向导数最大 = <span style="color:#ff6b6b;font-size:1.4rem;">$|\nabla f|$</span><br>
+            <span style="color:#ffd93d;">梯度方向是函数增长最快的方向。</span>
+        </p>
+    </div>
+
+    <div style="text-align:center;margin-top:30px;padding:16px;border-top:1px solid #ddd;font-size:0.95rem;color:#5d6d7e;">
+        <p>📚 依据 <strong>《高等数学》</strong>（同济大学数学系 编）· 多元函数微分学<br>
+        方向导数与梯度 · 点积的几何意义 · 余弦定理证明</p>
+        <p style="margin-top:6px;" class="sig">—— 教科书标准推导 ——</p>
+    </div>
+
+</div>
+</body>
+</html>

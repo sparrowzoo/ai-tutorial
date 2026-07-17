@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xavier Glorot 初始化 · 公式并列对比</title>
+    <!-- 使用 KaTeX 渲染公式 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(145deg, #f2f7fc 0%, #dce8f0 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 24px;
+        }
+        .card {
+            max-width: 1000px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(8px);
+            border-radius: 48px;
+            padding: 36px 34px 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 20, 40, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        h1 {
+            font-weight: 700;
+            font-size: 2.2rem;
+            letter-spacing: -0.02em;
+            color: #0b1e2e;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+        h1 small {
+            font-size: 1.2rem;
+            font-weight: 400;
+            color: #2c5778;
+            background: rgba(44, 87, 120, 0.10);
+            padding: 4px 20px;
+            border-radius: 40px;
+        }
+        .sub {
+            color: #1f3b4f;
+            font-size: 1rem;
+            padding-left: 18px;
+            margin-bottom: 24px;
+            border-left: 4px solid #3a7ca5;
+            padding-left: 20px;
+            background: rgba(58, 124, 165, 0.04);
+            border-radius: 0 12px 12px 0;
+            line-height: 1.7;
+        }
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #124263;
+            margin: 28px 0 14px 0;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #d0e2ef;
+        }
+        .highlight-box {
+            background: #eaf3fa;
+            border-radius: 24px;
+            padding: 20px 26px;
+            margin: 16px 0 20px;
+            border-left: 6px solid #1f6390;
+        }
+        .highlight-box p {
+            font-size: 1.02rem;
+            color: #1a4055;
+            line-height: 1.7;
+        }
+        /* 公式并列双栏 */
+        .formula-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin: 16px 0 10px;
+        }
+        .formula-box {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 24px 20px 20px;
+            border: 1px solid #cbdde8;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+            text-align: center;
+        }
+        .formula-box .label {
+            font-weight: 700;
+            color: #1d4c6a;
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+            display: block;
+            letter-spacing: 0.3px;
+        }
+        .formula-box .math {
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #0b2b40;
+            padding: 8px 0;
+        }
+        .formula-box .math .highlight {
+            color: #b34a2c;
+        }
+        .formula-box .badge {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            background: #e8f0f7;
+            padding: 2px 16px;
+            border-radius: 30px;
+            color: #1f4057;
+        }
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin: 16px 0 10px;
+        }
+        .grid-2col .col {
+            background: #f6faff;
+            border-radius: 20px;
+            padding: 20px 24px;
+            border: 1px solid #dde9f2;
+        }
+        .grid-2col .col h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1d4c6a;
+            margin-bottom: 12px;
+        }
+        .grid-2col .col ul {
+            list-style: none;
+            padding: 0;
+        }
+        .grid-2col .col ul li {
+            padding: 6px 0;
+            color: #1f4057;
+            font-size: 0.98rem;
+            line-height: 1.6;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .grid-2col .col ul li:last-child {
+            border-bottom: none;
+        }
+        .tag {
+            display: inline-block;
+            background: #1f6390;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 14px;
+            border-radius: 40px;
+            letter-spacing: 0.3px;
+        }
+        .ref {
+            margin-top: 24px;
+            padding: 18px 22px;
+            background: #f0f6fc;
+            border-radius: 18px;
+            border: 1px solid #d6e3ed;
+        }
+        .ref a {
+            color: #1f6390;
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px dotted #8ab4d6;
+        }
+        .ref a:hover {
+            border-bottom: 2px solid #1f6390;
+        }
+        .footnote {
+            margin-top: 20px;
+            padding: 16px 22px;
+            background: #f2f4f8;
+            border-radius: 18px;
+            border-left: 6px solid #b34a2c;
+        }
+        .footnote strong {
+            color: #1d3b4f;
+        }
+        .example-box {
+            background: #f0f6fc;
+            border-radius: 20px;
+            padding: 16px 24px;
+            margin: 12px 0;
+            border: 1px solid #d6e3ed;
+        }
+        @media (max-width: 700px) {
+            .card { padding: 24px 18px; }
+            h1 { font-size: 1.6rem; }
+            .formula-grid { grid-template-columns: 1fr; }
+            .grid-2col { grid-template-columns: 1fr; }
+            .formula-box .math { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>
+        Xavier Glorot 初始化
+        <small>公式并列对比</small>
+    </h1>
+    <div class="sub">
+        <strong>全名：</strong> Xavier Glorot（泽维尔·格洛罗特） · <strong>论文：</strong> AISTATS 2010 · <strong>合作者：</strong> Yoshua Bengio
+    </div>
+
+    <!-- ========== 核心思想 ========== -->
+    <div class="section-title">📌 核心思想</div>
+    <div class="highlight-box">
+        <p>
+            Xavier 初始化（亦称 Glorot 初始化）旨在解决深度网络中的<strong>梯度消失</strong>与<strong>梯度爆炸</strong>问题。
+            其核心原则是：<strong>让每一层输出的方差尽可能与输入方差保持一致</strong>，从而保证信号在前向传播和反向传播时都能稳定传递。
+        </p>
+    </div>
+
+    <!-- ========== 两种形式并列 ========== -->
+    <div class="section-title">📐 两种标准形式（并列）</div>
+
+    <div class="formula-grid">
+        <!-- 正态分布 -->
+        <div class="formula-box">
+            <span class="label">🔵 正态分布（Gaussian）</span>
+            <div class="math">
+                $$ W \sim \mathcal{N}\left(0,\ \sigma^2 \right), \quad \sigma = \sqrt{\frac{2}{n_{\text{in}} + n_{\text{out}}}} $$
+            </div>
+            <span class="badge">PyTorch: <code>xavier_normal_</code></span>
+        </div>
+
+        <!-- 均匀分布 -->
+        <div class="formula-box">
+            <span class="label">🟠 均匀分布（Uniform）</span>
+            <div class="math">
+                $$ W \sim U\left[ -\sqrt{\frac{6}{n_{\text{in}} + n_{\text{out}}}}, \quad +\sqrt{\frac{6}{n_{\text{in}} + n_{\text{out}}}} \right] $$
+            </div>
+            <span class="badge">PyTorch: <code>xavier_uniform_</code></span>
+        </div>
+    </div>
+
+    <!-- ========== 特征越多，标准差越小 ========== -->
+    <div style="background: #f2f4f8; border-radius: 20px; padding: 18px 24px; margin: 20px 0; border-left: 6px solid #b34a2c;">
+        <p style="font-size: 1.08rem; font-weight: 500; color: #1d3b4f;">
+            ⚡ <span style="background: #ffe8e0; padding: 2px 12px; border-radius: 30px; font-weight: 700;">特征越多，标准差越小</span>
+            —— 这是数学上的精确平衡，保证信号稳定。
+        </p>
+    </div>
+
+    <div class="grid-2col">
+        <div class="col">
+            <h3>🔢 数学推导</h3>
+            <ul>
+                <li>输出方差：$$ \text{Var}(y) = n_{\text{in}} \cdot \text{Var}(x) \cdot \text{Var}(w) $$</li>
+                <li>目标：$$ \text{Var}(y) = \text{Var}(x) $$（信号稳定）</li>
+                <li>解得：$$ \text{Var}(w) = \frac{1}{n_{\text{in}}} $$</li>
+                <li>➜ <strong>\( n_{\text{in}} \) 越大，\( \text{Var}(w) \) 必须越小</strong></li>
+            </ul>
+        </div>
+        <div class="col">
+            <h3>🧠 直观理解</h3>
+            <ul>
+                <li><strong>输入越多</strong> → 加权和越容易变大</li>
+                <li><strong>为了不爆炸</strong> → 每个权重要缩得更小</li>
+                <li><strong>就像分蛋糕：</strong> 人越多，每人分到的越小</li>
+                <li>➜ <strong>“特征越多，标准差越小”</strong> 的本质</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ========== 常数 2 和 6 的来源 ========== -->
+    <div class="section-title">🔍 常数 2 和 6 的数学来源</div>
+
+    <div class="grid-2col">
+        <div class="col">
+            <h3>🔵 正态分布：为什么是 √2</h3>
+            <ul>
+                <li><strong>目标：</strong> $$ \text{Var}(y) = \text{Var}(x) $$</li>
+                <li><strong>推导：</strong> $$ \text{Var}(y) = n_{\text{in}} \cdot \text{Var}(x) \cdot \text{Var}(w) $$</li>
+                <li><strong>设：</strong> $$ \text{Var}(x) = 1 $$，则 $$ \text{Var}(w) = \frac{1}{n_{\text{in}}} $$</li>
+                <li><strong>Xavier 改进版</strong>（考虑前向+反向）：</li>
+                <li>$$ \text{Var}(w) = \frac{2}{n_{\text{in}} + n_{\text{out}}} $$</li>
+                <li>➜ <strong>标准差 $$ \sigma = \sqrt{\frac{2}{n_{\text{in}} + n_{\text{out}}}} $$</strong></li>
+                <li style="color: #b34a2c; font-weight: 500;">✅ 2 来自“前向+反向”的平衡</li>
+            </ul>
+        </div>
+        <div class="col">
+            <h3>🟠 均匀分布：为什么是 √6</h3>
+            <ul>
+                <li><strong>均匀分布 \( U[-a, a] \) 的方差：</strong> $$ \text{Var} = \frac{a^2}{3} $$</li>
+                <li><strong>我们希望方差匹配：</strong> $$ \text{Var}(w) = \frac{2}{n_{\text{in}} + n_{\text{out}}} $$</li>
+                <li><strong>令：</strong> $$ \frac{a^2}{3} = \frac{2}{n_{\text{in}} + n_{\text{out}}} $$</li>
+                <li><strong>解得：</strong> $$ a = \sqrt{\frac{6}{n_{\text{in}} + n_{\text{out}}}} $$</li>
+                <li><strong>所以：</strong> $$ W \sim U[-a, a] $$，其中 $$ a = \sqrt{\frac{6}{n_{\text{in}} + n_{\text{out}}}} $$</li>
+                <li style="color: #b34a2c; font-weight: 500;">✅ 6 来自“均匀分布方差公式” + “方差匹配”</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ========== fan_in / fan_out ========== -->
+    <div class="section-title">🧩 fan_in 和 fan_out 的含义</div>
+
+    <div style="background: #e8f0f7; border-radius: 20px; padding: 14px 20px; margin-bottom: 16px; border-left: 4px solid #1f6390;">
+        <p style="font-size: 1rem; color: #1f4057;">
+            <strong>⚠️ 重要：</strong> \( n_{\text{in}} \)（fan_in）和 \( n_{\text{out}} \)（fan_out）是 <strong>“当前层”</strong> 的输入输出维度，<strong>不是整个网络的输入输出</strong>。
+            每一层都有自己的 fan_in 和 fan_out，完全取决于当前层的连接数。
+        </p>
+    </div>
+
+    <div class="grid-2col">
+        <div class="col">
+            <h3>📥 fan_in（输入维度）</h3>
+            <ul>
+                <li><strong>全连接层：</strong> 等于 <strong>输入神经元的数量</strong></li>
+                <li><strong>卷积层：</strong> 等于 <strong>输入通道数 × 卷积核大小</strong></li>
+                <li><strong>含义：</strong> 每个输出神经元接收的 <strong>输入连接数</strong></li>
+                <li><strong>作用：</strong> 控制前向传播时的方差</li>
+            </ul>
+        </div>
+        <div class="col">
+            <h3>📤 fan_out（输出维度）</h3>
+            <ul>
+                <li><strong>全连接层：</strong> 等于 <strong>输出神经元的数量</strong></li>
+                <li><strong>卷积层：</strong> 等于 <strong>输出通道数 × 卷积核大小</strong></li>
+                <li><strong>含义：</strong> 每个输入神经元连接的 <strong>输出连接数</strong></li>
+                <li><strong>作用：</strong> 控制反向传播时的方差</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 举例说明 -->
+    <div class="example-box">
+        <p style="font-size: 1rem; color: #1f4057;">
+            <strong>📌 举例：</strong> 一个 3 层网络：784 → 256 → 128 → 10<br><br>
+            • <strong>隐藏层1：</strong> \( n_{\text{in}} = 784 \)，\( n_{\text{out}} = 256 \) → \( \sigma = \sqrt{\frac{2}{784+256}} \approx 0.044 \)<br>
+            • <strong>隐藏层2：</strong> \( n_{\text{in}} = 256 \)，\( n_{\text{out}} = 128 \) → \( \sigma = \sqrt{\frac{2}{256+128}} \approx 0.072 \)<br>
+            • <strong>输出层：</strong> \( n_{\text{in}} = 128 \)，\( n_{\text{out}} = 10 \) → \( \sigma = \sqrt{\frac{2}{128+10}} \approx 0.120 \)
+        </p>
+    </div>
+
+    <!-- ========== 适用场景 ========== -->
+    <div class="section-title">📌 适用场景</div>
+    <div style="background: #e8f0f7; border-radius: 20px; padding: 18px 24px; margin: 12px 0;">
+        <p style="font-size: 1rem; color: #1f4057;">
+            <span class="tag">✓ 适用于</span> <strong>Sigmoid</strong>、<strong>Tanh</strong> 等 S 型激活函数
+            <span style="margin-left: 24px;"><span class="tag" style="background: #8b6f4a;">⚠ 不适用于</span> <strong>ReLU</strong>（请用 <strong>Kaiming / He</strong> 初始化）</span>
+        </p>
+    </div>
+
+    <!-- ========== 终极总结 ========== -->
+    <div class="footnote">
+        <p style="font-size: 1.02rem; line-height: 1.7;">
+            <strong>✅ 终极总结：</strong><br>
+            • <strong>正态分布中的 2</strong> 来自“前向+反向”方差匹配的平衡。<br>
+            • <strong>均匀分布中的 6</strong> 来自“均匀分布方差 \( = a^2/3 \)” + “方差匹配”。<br>
+            • <strong>fan_in</strong> = 当前层的输入连接数（控制前向信号），<strong>fan_out</strong> = 当前层的输出连接数（控制反向信号）。<br>
+            • <strong>特征越多，标准差越小</strong> —— 这是为了保证深层网络信号稳定，避免梯度消失或爆炸。
+        </p>
+    </div>
+
+    <!-- ========== 权威引用 ========== -->
+    <div class="ref">
+        <p class="cite">
+            <strong>📄 原始论文：</strong>
+            <a href="https://proceedings.mlr.press/v9/glorot10a.html" target="_blank">
+                “Understanding the difficulty of training deep feedforward neural networks”
+            </a>
+            <span style="color: #345d7a; margin-left: 12px;">— Glorot &amp; Bengio, AISTATS 2010</span>
+        </p>
+        <p style="margin-top: 10px; font-size: 0.92rem; color: #1f4057;">
+            <strong>📌 PyTorch 实现：</strong> <code style="background: #dce8f0; padding: 2px 10px; border-radius: 30px;">torch.nn.init.xavier_normal_(tensor, gain=1.0)</code> 和 <code style="background: #dce8f0; padding: 2px 10px; border-radius: 30px;">xavier_uniform_(tensor, gain=1.0)</code>
+        </p>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false
+        });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方向导数 · 偏导数 · 梯度 (纯净版)</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0,0,0,0.75);
+            padding: 12px 18px;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 10;
+            border-left: 4px solid #ffd93d;
+            max-width: 300px;
+            backdrop-filter: blur(4px);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        #info h1 { margin: 0 0 4px 0; font-size: 1.2rem; color: #ffd93d; }
+        #info .highlight { color: #ffd93d; }
+        #info .fx { color: #4ecdc4; }
+        #info .fy { color: #ffd93d; }
+        #info .grad { color: #ff6b6b; }
+        #info .dir { color: #a29bfe; }
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #eee;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            line-height: 1.8;
+            backdrop-filter: blur(4px);
+            border: 1px solid #444;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #legend .item { display: flex; align-items: center; gap: 8px; }
+        .color-box { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+        #slider-container {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 10px 24px;
+            border-radius: 30px;
+            backdrop-filter: blur(6px);
+            border: 1px solid #555;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 20;
+            color: #eee;
+            font-size: 0.9rem;
+        }
+        #slider-container input {
+            width: 260px;
+            cursor: pointer;
+            accent-color: #a29bfe;
+        }
+        #slider-container span {
+            min-width: 60px;
+            text-align: center;
+            color: #a29bfe;
+            font-weight: bold;
+        }
+        #controls-note {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #888;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 14px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            pointer-events: none;
+            z-index: 10;
+        }
+        @media (max-width: 600px) {
+            #info { top: 10px; left: 10px; padding: 8px 12px; max-width: 200px; font-size: 0.75rem; }
+            #info h1 { font-size: 1.0rem; }
+            #legend { bottom: 10px; right: 10px; padding: 6px 10px; font-size: 0.7rem; }
+            #slider-container { bottom: 70px; padding: 8px 16px; gap: 10px; flex-wrap: wrap; justify-content: center; }
+            #slider-container input { width: 160px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>📐 方向导数 · 偏导数 · 梯度</h1>
+        <p><span class="fx">f<sub>x</sub></span> = 1.60 &nbsp;|&nbsp; <span class="fy">f<sub>y</sub></span> = 1.00</p>
+        <p><span class="dir">方向导数</span> D<sub>l</sub>f = <span id="dirDerivDisplay" style="color:#a29bfe;font-weight:bold;">1.84</span></p>
+        <p style="font-size:0.75rem;opacity:0.7;margin-top:4px;">👇 拖动滑块改变方向角 α</p>
+    </div>
+    <div id="legend">
+        <div class="item"><span class="color-box" style="background:#ff6b6b;"></span> 梯度 ∇f</div>
+        <div class="item"><span class="color-box" style="background:#a29bfe;"></span> 方向向量 l</div>
+        <div class="item"><span class="color-box" style="background:#a29bfe;opacity:0.6;"></span> 方向导数切线</div>
+        <div class="item"><span class="color-box" style="background:#4ecdc4;"></span> f<sub>x</sub>·cosα (X轴投影)</div>
+        <div class="item"><span class="color-box" style="background:#ffd93d;"></span> f<sub>y</sub>·sinα (Y轴投影)</div>
+        <div class="item"><span class="color-box" style="background:#ffffff;"></span> 点 P</div>
+    </div>
+
+    <div id="slider-container">
+        <span>方向角 α</span>
+        <input type="range" id="angleSlider" min="0" max="180" value="45" step="1">
+        <span id="angleDisplay">45°</span>
+    </div>
+    <div id="controls-note">🖱️ 拖动旋转 · 滚动缩放</div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // --- 初始化 ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a1a);
+
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(6.0, 4.5, 7.0);
+    camera.lookAt(0, 1.0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.left = '0';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.body.appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(0, 1.0, 0);
+    controls.update();
+
+    // --- 灯光 ---
+    const ambient = new THREE.AmbientLight(0x404068);
+    scene.add(ambient);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(2, 5, 3);
+    scene.add(dirLight);
+    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.3);
+    fillLight.position.set(-2, 1, -3);
+    scene.add(fillLight);
+
+    // --- 网格 & 坐标轴 ---
+    const gridHelper = new THREE.GridHelper(5, 20, 0x6688aa, 0x334466);
+    gridHelper.position.y = -0.1;
+    scene.add(gridHelper);
+    const axesHelper = new THREE.AxesHelper(3.8);
+    scene.add(axesHelper);
+
+    function makeLabel(text, color, pos) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        div.style.color = color;
+        div.style.fontSize = '16px';
+        div.style.fontWeight = 'bold';
+        div.style.textShadow = '1px 1px 2px black';
+        const label = new CSS2DObject(div);
+        label.position.copy(pos);
+        return label;
+    }
+    scene.add(makeLabel('X', '#ff6b6b', new THREE.Vector3(4.0, -0.1, 0)));
+    scene.add(makeLabel('Y', '#4ecdc4', new THREE.Vector3(0, -0.1, 4.0)));
+    scene.add(makeLabel('Z (高度)', '#ffd93d', new THREE.Vector3(0, 4.0, 0)));
+
+    // --- 函数 f(x,y) = x^2 + y^2 ---
+    const f = (x, y) => x*x + y*y;
+
+    // --- 绘制曲面 ---
+    const range = 2.0;
+    const seg = 60;
+    const positions = [];
+    const colors = [];
+    const indices = [];
+    let minY = 0, maxY = 8;
+
+    for (let i = 0; i <= seg; i++) {
+        const x = -range + (i / seg) * 2 * range;
+        for (let j = 0; j <= seg; j++) {
+            const y = -range + (j / seg) * 2 * range;
+            const z = f(x, y);
+            positions.push(x, z, y);
+            if (z < minY) minY = z;
+            if (z > maxY) maxY = z;
+        }
+    }
+    for (let i = 0; i <= seg; i++) {
+        const x = -range + (i / seg) * 2 * range;
+        for (let j = 0; j <= seg; j++) {
+            const y = -range + (j / seg) * 2 * range;
+            const z = f(x, y);
+            const t = (z - minY) / (maxY - minY);
+            colors.push(0.2 + 0.6*t, 0.2 + 0.5*(1-t), 0.8 - 0.3*t);
+        }
+    }
+    for (let i = 0; i < seg; i++) {
+        for (let j = 0; j < seg; j++) {
+            const a = i * (seg + 1) + j;
+            const b = a + 1;
+            const c = (i + 1) * (seg + 1) + j;
+            const d = c + 1;
+            indices.push(a, b, c, b, d, c);
+        }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+
+    const mat = new THREE.MeshPhongMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+        shininess: 30,
+        specular: new THREE.Color(0x224466),
+    });
+    scene.add(new THREE.Mesh(geo, mat));
+
+    // --- 固定点 P ---
+    const Px = 0.8, Py = 0.5;
+    const Pz = f(Px, Py);
+    const P_pos = new THREE.Vector3(Px, Pz, Py);
+
+    const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 20, 20),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x88aaff, emissiveIntensity: 0.2 })
+    );
+    sphere.position.copy(P_pos);
+    scene.add(sphere);
+    const pLabel = new CSS2DObject(document.createElement('div'));
+    pLabel.element.textContent = 'P';
+    pLabel.element.style.cssText = 'color:#fff;font-size:18px;font-weight:bold;text-shadow:1px 1px 2px black;';
+    pLabel.position.set(Px, Pz + 0.3, Py);
+    scene.add(pLabel);
+
+    // --- 梯度 (固定) ---
+    const gradX = 2 * Px, gradY = 2 * Py;
+    const gradNorm = Math.sqrt(gradX*gradX + gradY*gradY);
+
+    // 梯度向量 (红色，平躺XOY平面)
+    const gradDir = new THREE.Vector3(gradX, 0, gradY).normalize();
+    const gradLen = 0.9;
+    const gradStart = new THREE.Vector3(Px, 0, Py);
+    const gradEnd = gradStart.clone().add(gradDir.clone().multiplyScalar(gradLen));
+    const gradArrow = new THREE.ArrowHelper(gradDir, gradStart, gradLen, 0xff6b6b, 0.25, 0.15);
+    scene.add(gradArrow);
+    const gradLabel = new CSS2DObject(document.createElement('div'));
+    gradLabel.element.textContent = '∇f = (1.60, 1.00)';
+    gradLabel.element.style.cssText = 'color:#ff6b6b;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px black;';
+    const gradMid = gradStart.clone().add(gradEnd).multiplyScalar(0.5);
+    gradLabel.position.set(gradMid.x, gradMid.y + 0.35, gradMid.z);
+    scene.add(gradLabel);
+
+    // 垂直投影虚线 (从P到水平面)
+    const dashPoints = [
+        new THREE.Vector3(Px, 0, Py),
+        new THREE.Vector3(Px, Pz, Py)
+    ];
+    const dashGeo = new THREE.BufferGeometry().setFromPoints(dashPoints);
+    const dashMat = new THREE.LineDashedMaterial({ color: 0x888888, dashSize: 0.05, gapSize: 0.05, transparent: true, opacity: 0.3 });
+    const dashLine = new THREE.Line(dashGeo, dashMat);
+    dashLine.computeLineDistances();
+    scene.add(dashLine);
+
+    // 曲面上的梯度切线 (半透明)
+    const tanGradDir = new THREE.Vector3(gradX, gradNorm, gradY).normalize();
+    const tanGradStart = P_pos.clone();
+    const tanGradEnd = tanGradStart.clone().add(tanGradDir.clone().multiplyScalar(0.7));
+    const tanGradLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([tanGradStart, tanGradEnd]),
+        new THREE.LineBasicMaterial({ color: 0xff6b6b, linewidth: 2, opacity: 0.5, transparent: true })
+    );
+    scene.add(tanGradLine);
+
+    // --- 动态组 (包含所有随角度变化的对象) ---
+    const dynamicGroup = new THREE.Group();
+    scene.add(dynamicGroup);
+
+    // --- 滑块控制 ---
+    const slider = document.getElementById('angleSlider');
+    const angleDisplay = document.getElementById('angleDisplay');
+    const dirDerivDisplay = document.getElementById('dirDerivDisplay');
+
+    function updateDirection(alphaDeg) {
+        while(dynamicGroup.children.length > 0) {
+            const child = dynamicGroup.children[0];
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+            dynamicGroup.remove(child);
+        }
+
+        const alpha = alphaDeg * Math.PI / 180;
+        const ex = Math.cos(alpha);
+        const ey = Math.sin(alpha);
+        const dirDeriv = gradX * ex + gradY * ey;
+
+        // --- 计算投影分量 ---
+        const projFx = gradX * ex;  // f_x · cosα
+        const projFy = gradY * ey;  // f_y · sinα
+
+        // 更新显示
+        dirDerivDisplay.textContent = dirDeriv.toFixed(3);
+        angleDisplay.textContent = `${Math.round(alphaDeg)}°`;
+
+        // --- 1. 切面 (半透明) ---
+        const planeSize = 1.8;
+        const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeMat = new THREE.MeshPhongMaterial({
+            color: 0x4ecdc4,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.08,
+            emissive: 0x226688,
+            emissiveIntensity: 0.03,
+        });
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        const normal = new THREE.Vector3(-ey, 0, ex).normalize();
+        const quat = new THREE.Quaternion().setFromUnitVectors(
+            new THREE.Vector3(0, 0, 1),
+            normal
+        );
+        plane.quaternion.copy(quat);
+        plane.position.copy(P_pos);
+        dynamicGroup.add(plane);
+
+        // --- 2. 交线 (黄色) ---
+        const tRange = 1.2;
+        const steps = 60;
+        const curvePoints = [];
+        for (let i = -steps; i <= steps; i++) {
+            const t = (i / steps) * tRange;
+            const x = Px + t * ex;
+            const y = Py + t * ey;
+            const z = f(x, y);
+            curvePoints.push(new THREE.Vector3(x, z, y));
+        }
+        const curveGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
+        const curveMat = new THREE.LineBasicMaterial({ color: 0xffd93d, linewidth: 1, opacity: 0.4, transparent: true });
+        const curveLine = new THREE.Line(curveGeo, curveMat);
+        dynamicGroup.add(curveLine);
+
+        // --- 3. 方向向量 l (紫色) ---
+        const lDir = new THREE.Vector3(ex, 0, ey).normalize();
+        const lLen = 0.7;
+        const lStart = new THREE.Vector3(Px, 0, Py);
+        const lArrow = new THREE.ArrowHelper(lDir, lStart, lLen, 0xa29bfe, 0.2, 0.12);
+        dynamicGroup.add(lArrow);
+        const lLabel = new CSS2DObject(document.createElement('div'));
+        lLabel.element.textContent = 'l';
+        lLabel.element.style.cssText = 'color:#a29bfe;font-size:16px;font-weight:bold;text-shadow:1px 1px 2px black;';
+        const lPos = lStart.clone().add(lDir.clone().multiplyScalar(0.4));
+        lLabel.position.set(lPos.x, lPos.y + 0.3, lPos.z);
+        dynamicGroup.add(lLabel);
+
+        // --- 4. 角度标签 ---
+        const alphaLabel = new CSS2DObject(document.createElement('div'));
+        alphaLabel.element.textContent = `α = ${Math.round(alphaDeg)}°`;
+        alphaLabel.element.style.cssText = 'color:#ffd93d;font-size:13px;font-weight:bold;text-shadow:1px 1px 2px black;';
+        const alphaPos = lStart.clone().add(lDir.clone().multiplyScalar(0.3));
+        alphaLabel.position.set(alphaPos.x, alphaPos.y + 0.5, alphaPos.z);
+        dynamicGroup.add(alphaLabel);
+
+        // --- 5. 方向导数切线 (紫色) ---
+        const tanDir = new THREE.Vector3(ex, dirDeriv, ey);
+        if (tanDir.length() > 0.001) tanDir.normalize();
+        else tanDir.set(0, 1, 0);
+        const tanLen = 0.7;
+        const tanStart = P_pos.clone();
+        const tanEnd = tanStart.clone().add(tanDir.clone().multiplyScalar(tanLen));
+        const tanLine = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([tanStart, tanEnd]),
+            new THREE.LineBasicMaterial({ color: 0xa29bfe, linewidth: 2 })
+        );
+        dynamicGroup.add(tanLine);
+        const tanArrow = new THREE.ArrowHelper(tanDir, tanStart, tanLen, 0xa29bfe, 0.15, 0.1);
+        dynamicGroup.add(tanArrow);
+
+        // --- 6. 在X轴上显示投影分量 (青色标记点) ---
+        const dotGeo = new THREE.SphereGeometry(0.07, 12, 12);
+        const clampedX = Math.max(-2.8, Math.min(2.8, projFx));
+        const dotMatX = new THREE.MeshBasicMaterial({ color: 0x4ecdc4 });
+        const dotX = new THREE.Mesh(dotGeo, dotMatX);
+        dotX.position.set(clampedX, 0, 0);
+        dynamicGroup.add(dotX);
+        
+        // 青色刻度线
+        if (Math.abs(projFx) > 0.005) {
+            const tickLinePoints = [
+                new THREE.Vector3(clampedX, -0.08, 0),
+                new THREE.Vector3(clampedX, 0.08, 0)
+            ];
+            const tickLineGeo = new THREE.BufferGeometry().setFromPoints(tickLinePoints);
+            const tickLineMat = new THREE.LineBasicMaterial({ color: 0x4ecdc4, transparent: true, opacity: 0.5 });
+            const tickLine = new THREE.Line(tickLineGeo, tickLineMat);
+            dynamicGroup.add(tickLine);
+        }
+
+        // --- 7. 在Y轴上显示投影分量 (黄色标记点) ---
+        const clampedY = Math.max(-2.8, Math.min(2.8, projFy));
+        const dotMatY = new THREE.MeshBasicMaterial({ color: 0xffd93d });
+        const dotY = new THREE.Mesh(dotGeo, dotMatY);
+        dotY.position.set(0, 0, clampedY);
+        dynamicGroup.add(dotY);
+        
+        // 黄色刻度线
+        if (Math.abs(projFy) > 0.005) {
+            const tickLinePoints = [
+                new THREE.Vector3(0, -0.08, clampedY),
+                new THREE.Vector3(0, 0.08, clampedY)
+            ];
+            const tickLineGeo = new THREE.BufferGeometry().setFromPoints(tickLinePoints);
+            const tickLineMat = new THREE.LineBasicMaterial({ color: 0xffd93d, transparent: true, opacity: 0.5 });
+            const tickLine = new THREE.Line(tickLineGeo, tickLineMat);
+            dynamicGroup.add(tickLine);
+        }
+
+        // --- 8. 方向导数数值标签 (在3D空间中) ---
+        const derivLabel = new CSS2DObject(document.createElement('div'));
+        derivLabel.element.textContent = `D_l f = ${dirDeriv.toFixed(3)}`;
+        derivLabel.element.style.cssText = 'color:#a29bfe;font-size:15px;font-weight:bold;background:rgba(0,0,0,0.6);padding:4px 12px;border-radius:6px;border:1px solid #a29bfe;';
+        derivLabel.position.set(-1.2, 3.8, -1.2);
+        dynamicGroup.add(derivLabel);
+    }
+
+    slider.addEventListener('input', (e) => {
+        updateDirection(parseFloat(e.target.value));
+    });
+    updateDirection(45);
+
+    // --- 窗口自适应 ---
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // --- 动画 ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+        labelRenderer.render(scene, camera);
+    }
+    animate();
+    </script>
+</body>
+</html>

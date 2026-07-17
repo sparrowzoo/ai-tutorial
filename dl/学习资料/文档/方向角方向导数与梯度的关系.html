@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方向导数 · 偏导数 · 梯度 · 角度标注</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 16px 24px;
+            border-radius: 10px;
+            pointer-events: none;
+            z-index: 100;
+            border-left: 5px solid #ffd93d;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            max-width: 420px;
+        }
+        #info h1 {
+            margin: 0 0 6px 0;
+            font-size: 1.3rem;
+            letter-spacing: 1px;
+            color: #ffd93d;
+        }
+        #info p {
+            margin: 3px 0;
+            font-size: 0.9rem;
+            opacity: 0.95;
+            line-height: 1.6;
+        }
+        #info .highlight { color: #ffd93d; font-weight: bold; }
+        #info .grad { color: #ff6b6b; font-weight: bold; }
+        #info .dir { color: #a29bfe; font-weight: bold; }
+        #info .partial { color: #4ecdc4; font-weight: bold; }
+        #info .formula {
+            margin-top: 6px;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #ffd93d;
+            line-height: 1.8;
+        }
+        #controls-note {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #aaa;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(2px);
+            pointer-events: none;
+            z-index: 100;
+        }
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #eee;
+            background: rgba(16, 16, 28, 0.88);
+            padding: 12px 18px;
+            border-radius: 10px;
+            backdrop-filter: blur(4px);
+            border: 1px solid #444;
+            font-size: 0.85rem;
+            line-height: 1.9;
+            pointer-events: none;
+            z-index: 100;
+        }
+        #legend .item {
+            display: flex;
+            align-items: center;
+            margin: 1px 0;
+        }
+        .color-label {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            margin-right: 10px;
+        }
+        #slider-container {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 24px;
+            border-radius: 30px;
+            backdrop-filter: blur(6px);
+            border: 1px solid #555;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 200;
+            color: #eee;
+            font-size: 0.95rem;
+            pointer-events: auto;
+        }
+        #slider-container input {
+            width: 260px;
+            cursor: pointer;
+            accent-color: #a29bfe;
+        }
+        #slider-container span {
+            min-width: 80px;
+            text-align: center;
+            color: #a29bfe;
+            font-weight: bold;
+        }
+        @media (max-width: 600px) {
+            #info { top: 10px; left: 10px; padding: 10px 14px; max-width: 200px; }
+            #info h1 { font-size: 1.0rem; }
+            #legend { bottom: 10px; right: 10px; padding: 8px 12px; font-size: 0.7rem; }
+            #slider-container { bottom: 70px; padding: 8px 16px; gap: 10px; flex-wrap: wrap; justify-content: center; }
+            #slider-container input { width: 160px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>📐 方向导数 · 偏导数 · 梯度</h1>
+        <p><span class="grad">梯度 ∇f</span>（红色）方向导数最大的方向</p>
+        <p><span class="dir">方向导数 D_e f</span>（紫色）沿方向 e 的变化率</p>
+        <p><span class="partial">偏导数 f_x(x₀,y₀)</span>（青色）沿 X 轴方向的变化率</p>
+        <div class="formula">
+            ∇f = (f_x, f_y) = (1.60, 1.00)<br>
+            θ = 方向向量 e 与梯度 ∇f 的夹角
+        </div>
+        <p style="margin-top:4px; font-size:0.85rem; opacity:0.7;">👇 拖动滑块改变方向角 α（0~180°）</p>
+    </div>
+    <div id="controls-note">🖱️ 拖动旋转 · 滚动缩放</div>
+    <div id="legend">
+        <div class="item"><span class="color-label" style="background: #ff6b6b;"></span> 梯度 ∇f (平躺XOY平面)</div>
+        <div class="item"><span class="color-label" style="background: #ff6b6b; opacity:0.4;"></span> 梯度方向切线</div>
+        <div class="item"><span class="color-label" style="background: #a29bfe;"></span> 方向导数 D_e f (切线)</div>
+        <div class="item"><span class="color-label" style="background: #a29bfe; opacity:0.4;"></span> 方向向量 e</div>
+        <div class="item"><span class="color-label" style="background: #4ecdc4;"></span> f_x(x₀,y₀) (X轴方向)</div>
+        <div class="item"><span class="color-label" style="background: #ffd93d;"></span> 切面与曲面交线</div>
+        <div class="item"><span class="color-label" style="background: #4ecdc4; opacity:0.15;"></span> 切面 (过P沿方向e)</div>
+        <div class="item"><span class="color-label" style="background: #ffffff;"></span> 点 P</div>
+    </div>
+
+    <div id="slider-container">
+        <span>方向角 α</span>
+        <input type="range" id="angleSlider" min="0" max="180" value="45" step="1">
+        <span id="angleDisplay">45°</span>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 初始化场景 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a1a);
+
+        // --- 相机 ---
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(5.5, 4.5, 6.5);
+        camera.lookAt(0, 1.0, 0);
+
+        // --- 渲染器 ---
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // --- 控制器 ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 1.0, 0);
+        controls.update();
+
+        // --- 灯光 ---
+        const ambient = new THREE.AmbientLight(0x404068);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight.position.set(2, 5, 3);
+        scene.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0x88aaff, 0.3);
+        fillLight.position.set(-2, 1, -3);
+        scene.add(fillLight);
+
+        // --- 辅助: 网格 ---
+        const gridHelper = new THREE.GridHelper(5, 20, 0x6688aa, 0x334466);
+        gridHelper.position.y = -0.1;
+        scene.add(gridHelper);
+
+        const axesHelper = new THREE.AxesHelper(3.5);
+        scene.add(axesHelper);
+
+        function makeLabel(text, color, pos) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            div.style.color = color;
+            div.style.fontSize = '16px';
+            div.style.fontWeight = 'bold';
+            div.style.textShadow = '1px 1px 2px black';
+            const label = new CSS2DObject(div);
+            label.position.copy(pos);
+            return label;
+        }
+        scene.add(makeLabel('X', '#ff6b6b', new THREE.Vector3(3.8, -0.1, 0)));
+        scene.add(makeLabel('Z (高度)', '#ffd93d', new THREE.Vector3(0, 3.8, 0)));
+        scene.add(makeLabel('Y', '#4ecdc4', new THREE.Vector3(0, -0.1, 3.8)));
+
+        // --- 函数 f(x, y) = x^2 + y^2 (数学坐标) ---
+        const f = (x, y_math) => x*x + y_math*y_math;
+
+        // --- 绘制曲面 ---
+        const range = 2.0;
+        const seg = 60;
+        const positions = [];
+        const colors = [];
+        const indices = [];
+        let minY = 0, maxY = 8;
+
+        for (let i = 0; i <= seg; i++) {
+            const x = -range + (i / seg) * 2 * range;
+            for (let j = 0; j <= seg; j++) {
+                const y_math = -range + (j / seg) * 2 * range;
+                const z_val = f(x, y_math);
+                positions.push(x, z_val, y_math);
+                if (z_val < minY) minY = z_val;
+                if (z_val > maxY) maxY = z_val;
+            }
+        }
+
+        const colors2 = [];
+        for (let i = 0; i <= seg; i++) {
+            const x = -range + (i / seg) * 2 * range;
+            for (let j = 0; j <= seg; j++) {
+                const y_math = -range + (j / seg) * 2 * range;
+                const z_val = f(x, y_math);
+                const t = (z_val - minY) / (maxY - minY);
+                colors2.push(0.2 + 0.6*t, 0.2 + 0.5*(1-t), 0.8 - 0.3*t);
+            }
+        }
+
+        for (let i = 0; i < seg; i++) {
+            for (let j = 0; j < seg; j++) {
+                const a = i * (seg + 1) + j;
+                const b = a + 1;
+                const c = (i + 1) * (seg + 1) + j;
+                const d = c + 1;
+                indices.push(a, b, c, b, d, c);
+            }
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors2, 3));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+
+        const mat = new THREE.MeshPhongMaterial({
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85,
+            shininess: 30,
+            specular: new THREE.Color(0x224466),
+        });
+        scene.add(new THREE.Mesh(geo, mat));
+
+        // --- 固定点 P (数学坐标) ---
+        const Px = 0.8;
+        const Py_math = 0.5;
+        const Pz_math = f(Px, Py_math);
+        const P_pos = new THREE.Vector3(Px, Pz_math, Py_math);
+
+        // 点 P 标记
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 20, 20),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x88aaff, emissiveIntensity: 0.2 })
+        );
+        sphere.position.copy(P_pos);
+        scene.add(sphere);
+
+        const pLabel = new CSS2DObject(document.createElement('div'));
+        pLabel.element.textContent = 'P';
+        pLabel.element.style.cssText = 'color:#fff;font-size:18px;font-weight:bold;text-shadow:1px 1px 2px black;';
+        pLabel.position.set(Px, Pz_math + 0.3, Py_math);
+        scene.add(pLabel);
+
+        // --- 梯度 (固定，平躺XOY平面) ---
+        const gradX = 2 * Px;      // = 1.6
+        const gradY = 2 * Py_math; // = 1.0
+        const gradNorm = Math.sqrt(gradX*gradX + gradY*gradY);
+
+        // 梯度向量：平躺XOY平面
+        const gradDir = new THREE.Vector3(gradX, 0, gradY).normalize();
+        const gradLen = 0.9;
+        const gradStart = new THREE.Vector3(Px, 0, Py_math);
+        const gradEnd = gradStart.clone().add(gradDir.clone().multiplyScalar(gradLen));
+        
+        // 红色梯度箭头 (平躺)
+        const gradArrow = new THREE.ArrowHelper(gradDir, gradStart, gradLen, 0xff6b6b, 0.25, 0.15);
+        scene.add(gradArrow);
+        
+        // 垂直投影虚线 (从P到水平面)
+        const dashPoints = [
+            new THREE.Vector3(Px, 0, Py_math),
+            new THREE.Vector3(Px, Pz_math, Py_math)
+        ];
+        const dashGeo = new THREE.BufferGeometry().setFromPoints(dashPoints);
+        const dashMat = new THREE.LineDashedMaterial({ 
+            color: 0x888888, 
+            dashSize: 0.05, 
+            gapSize: 0.05,
+            transparent: true,
+            opacity: 0.3
+        });
+        const dashLine = new THREE.Line(dashGeo, dashMat);
+        dashLine.computeLineDistances();
+        scene.add(dashLine);
+
+        // 梯度标签 (平躺)
+        const gradLabel = new CSS2DObject(document.createElement('div'));
+        gradLabel.element.textContent = '∇f = (1.60, 1.00)';
+        gradLabel.element.style.cssText = 'color:#ff6b6b;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px black;';
+        const gradMid = gradStart.clone().add(gradEnd).multiplyScalar(0.5);
+        gradLabel.position.set(gradMid.x, gradMid.y + 0.35, gradMid.z);
+        scene.add(gradLabel);
+
+        // 曲面上的梯度方向切线 (红色半透明)
+        const tanGradDir = new THREE.Vector3(gradX, gradNorm, gradY).normalize();
+        const tanGradLen = 0.7;
+        const tanGradStart = P_pos.clone();
+        const tanGradEnd = tanGradStart.clone().add(tanGradDir.clone().multiplyScalar(tanGradLen));
+        
+        const tanGradLine = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([tanGradStart, tanGradEnd]),
+            new THREE.LineBasicMaterial({ color: 0xff6b6b, linewidth: 2, opacity: 0.5, transparent: true })
+        );
+        scene.add(tanGradLine);
+
+        // --- f_x(x₀,y₀) (沿X轴) 固定 ---
+        // 水平面方向向量 (半透明青色)
+        const xDir = new THREE.Vector3(1, 0, 0).normalize();
+        const xLen = 0.7;
+        const xStart = new THREE.Vector3(Px, 0, Py_math);
+        const xEnd = xStart.clone().add(xDir.clone().multiplyScalar(xLen));
+        
+        const xArrow = new THREE.ArrowHelper(xDir, xStart, xLen, 0x4ecdc4, 0.2, 0.12, 0.5);
+        scene.add(xArrow);
+
+        // 曲面上的f_x切线 (青色实线)
+        const tanFxDir = new THREE.Vector3(1, gradX, 0).normalize();
+        const tanFxLen = 0.7;
+        const tanFxStart = P_pos.clone();
+        const tanFxEnd = tanFxStart.clone().add(tanFxDir.clone().multiplyScalar(tanFxLen));
+        
+        const tanFxLine = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([tanFxStart, tanFxEnd]),
+            new THREE.LineBasicMaterial({ color: 0x4ecdc4, linewidth: 2 })
+        );
+        scene.add(tanFxLine);
+        
+        const tanFxArrow = new THREE.ArrowHelper(tanFxDir, tanFxStart, tanFxLen, 0x4ecdc4, 0.15, 0.1);
+        scene.add(tanFxArrow);
+
+        const fxLabel = new CSS2DObject(document.createElement('div'));
+        fxLabel.element.textContent = 'f_x(x₀,y₀) = 1.60';
+        fxLabel.element.style.cssText = 'color:#4ecdc4;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px black;';
+        const fxMid = tanFxStart.clone().add(tanFxEnd).multiplyScalar(0.5);
+        fxLabel.position.set(fxMid.x, fxMid.y + 0.25, fxMid.z);
+        scene.add(fxLabel);
+
+        // --- 任意方向 e (动态) ---
+        const dynamicGroup = new THREE.Group();
+        scene.add(dynamicGroup);
+
+        function updateDirection(alphaDeg) {
+            // 清除动态组
+            while(dynamicGroup.children.length > 0) {
+                const child = dynamicGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+                dynamicGroup.remove(child);
+            }
+
+            const alpha = alphaDeg * Math.PI / 180;
+            const ex = Math.cos(alpha);
+            const ey = Math.sin(alpha);
+            const dirDeriv = gradX * ex + gradY * ey;
+
+            // --- 1. 切面 (半透明青色) ---
+            const planeSize = 1.8;
+            const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+            const planeMat = new THREE.MeshPhongMaterial({
+                color: 0x4ecdc4,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.12,
+                emissive: 0x226688,
+                emissiveIntensity: 0.05,
+            });
+            const plane = new THREE.Mesh(planeGeo, planeMat);
+            const normal = new THREE.Vector3(-ey, 0, ex).normalize();
+            const quat = new THREE.Quaternion().setFromUnitVectors(
+                new THREE.Vector3(0, 0, 1),
+                normal
+            );
+            plane.quaternion.copy(quat);
+            plane.position.copy(P_pos);
+            dynamicGroup.add(plane);
+
+            // 切面边框
+            const edges = new THREE.EdgesGeometry(planeGeo);
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x4ecdc4, opacity: 0.25, transparent: true });
+            const wireframePlane = new THREE.LineSegments(edges, edgeMat);
+            wireframePlane.quaternion.copy(quat);
+            wireframePlane.position.copy(P_pos);
+            dynamicGroup.add(wireframePlane);
+
+            // --- 2. 切面与曲面交线 (黄色) ---
+            const tRange = 1.2;
+            const steps = 60;
+            const curvePoints = [];
+            for (let i = -steps; i <= steps; i++) {
+                const t = (i / steps) * tRange;
+                const x = Px + t * ex;
+                const y_math = Py_math + t * ey;
+                const z_val = f(x, y_math);
+                curvePoints.push(new THREE.Vector3(x, z_val, y_math));
+            }
+            const curveGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
+            const curveMat = new THREE.LineBasicMaterial({ color: 0xffd93d, linewidth: 2 });
+            const curveLine = new THREE.Line(curveGeo, curveMat);
+            dynamicGroup.add(curveLine);
+
+            // 交线上的小圆点
+            const dotMat = new THREE.PointsMaterial({ color: 0xffd93d, size: 0.04 });
+            const dotPositions = curvePoints.map(p => [p.x, p.y, p.z]).flat();
+            const dotGeo = new THREE.BufferGeometry();
+            dotGeo.setAttribute('position', new THREE.Float32BufferAttribute(dotPositions, 3));
+            const dots = new THREE.Points(dotGeo, dotMat);
+            dynamicGroup.add(dots);
+
+            // --- 3. 方向向量 e (水平面，半透明紫色) ---
+            const eDir = new THREE.Vector3(ex, 0, ey).normalize();
+            const eLen = 0.7;
+            const eStart = new THREE.Vector3(Px, 0, Py_math);
+            const eEnd = eStart.clone().add(eDir.clone().multiplyScalar(eLen));
+            
+            const eArrow = new THREE.ArrowHelper(eDir, eStart, eLen, 0xa29bfe, 0.2, 0.12, 0.5);
+            dynamicGroup.add(eArrow);
+            
+            const eLabel = new CSS2DObject(document.createElement('div'));
+            eLabel.element.textContent = 'e';
+            eLabel.element.style.cssText = 'color:#a29bfe;font-size:16px;font-weight:bold;text-shadow:1px 1px 2px black;opacity:0.6;';
+            const ePos = eStart.clone().add(eDir.clone().multiplyScalar(0.4));
+            eLabel.position.set(ePos.x, ePos.y + 0.3, ePos.z);
+            dynamicGroup.add(eLabel);
+
+            // 显示角度值标签 α (方向向量与X轴的夹角)
+            const alphaLabel = new CSS2DObject(document.createElement('div'));
+            alphaLabel.element.textContent = `α = ${Math.round(alphaDeg)}°`;
+            alphaLabel.element.style.cssText = 'color:#ffd93d;font-size:13px;font-weight:bold;text-shadow:1px 1px 2px black;';
+            const alphaPos = eStart.clone().add(eDir.clone().multiplyScalar(0.25));
+            alphaLabel.position.set(alphaPos.x, alphaPos.y + 0.5, alphaPos.z);
+            dynamicGroup.add(alphaLabel);
+
+            // --- 4. 计算并显示 θ (方向向量 e 与梯度 ∇f 的夹角) ---
+            // θ = arccos( (e · ∇f) / (|e| * |∇f|) )
+            // 由于 e 和 ∇f 都在水平面上 (y=0)，可以直接用二维向量计算
+            const gradVec2 = new THREE.Vector2(gradX, gradY);
+            const eVec2 = new THREE.Vector2(ex, ey);
+            const gradNorm2 = gradVec2.length();
+            const eNorm2 = eVec2.length();
+            let thetaRad = 0;
+            if (gradNorm2 > 0.001 && eNorm2 > 0.001) {
+                const cosTheta = (gradVec2.dot(eVec2)) / (gradNorm2 * eNorm2);
+                // 限制范围避免数值误差
+                const clampedCos = Math.max(-1, Math.min(1, cosTheta));
+                thetaRad = Math.acos(clampedCos);
+            }
+            const thetaDeg = thetaRad * 180 / Math.PI;
+
+            // 在水平面上画 θ 角的弧线 (从梯度方向到方向向量 e)
+            // 画弧线：从梯度方向到 e 方向，半径为 0.35
+            const arcRadius = 0.35;
+            const arcSegments = 30;
+            const arcPoints = [];
+            // 梯度方向角度
+            const gradAngle = Math.atan2(gradY, gradX);
+            const eAngle = Math.atan2(ey, ex);
+            // 确定起始和结束角度 (确保弧线方向正确)
+            let startAngle = gradAngle;
+            let endAngle = eAngle;
+            // 如果 e 在梯度逆时针方向，直接画；否则调整
+            // 取最短弧
+            let diff = endAngle - startAngle;
+            while (diff > Math.PI) diff -= 2 * Math.PI;
+            while (diff < -Math.PI) diff += 2 * Math.PI;
+            
+            if (diff > 0) {
+                // 从梯度到 e 逆时针
+                for (let i = 0; i <= arcSegments; i++) {
+                    const t = i / arcSegments;
+                    const angle = startAngle + t * diff;
+                    const x = Px + arcRadius * Math.cos(angle);
+                    const z = Py_math + arcRadius * Math.sin(angle);
+                    arcPoints.push(new THREE.Vector3(x, 0, z));
+                }
+            } else {
+                // 从梯度到 e 顺时针
+                for (let i = 0; i <= arcSegments; i++) {
+                    const t = i / arcSegments;
+                    const angle = startAngle + t * diff;
+                    const x = Px + arcRadius * Math.cos(angle);
+                    const z = Py_math + arcRadius * Math.sin(angle);
+                    arcPoints.push(new THREE.Vector3(x, 0, z));
+                }
+            }
+
+            if (arcPoints.length > 1) {
+                const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPoints);
+                const arcMat = new THREE.LineBasicMaterial({ color: 0xffd93d, linewidth: 2 });
+                const arcLine = new THREE.Line(arcGeo, arcMat);
+                dynamicGroup.add(arcLine);
+            }
+
+            // θ 标签 (放在弧线中间)
+            const midAngle = (gradAngle + eAngle) / 2;
+            // 处理角度环绕
+            let midDiff = eAngle - gradAngle;
+            while (midDiff > Math.PI) midDiff -= 2 * Math.PI;
+            while (midDiff < -Math.PI) midDiff += 2 * Math.PI;
+            const midAngleCorrected = gradAngle + midDiff / 2;
+            const labelRadius = arcRadius + 0.25;
+            const thetaX = Px + labelRadius * Math.cos(midAngleCorrected);
+            const thetaZ = Py_math + labelRadius * Math.sin(midAngleCorrected);
+            
+            const thetaLabel = new CSS2DObject(document.createElement('div'));
+            thetaLabel.element.textContent = `θ = ${Math.round(thetaDeg)}°`;
+            thetaLabel.element.style.cssText = 'color:#ffd93d;font-size:14px;font-weight:bold;text-shadow:1px 1px 2px black;background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:4px;';
+            thetaLabel.position.set(thetaX, 0.15, thetaZ);
+            dynamicGroup.add(thetaLabel);
+
+            // --- 5. 方向导数切线 (在曲面上，紫色) ---
+            const tanDir = new THREE.Vector3(ex, dirDeriv, ey);
+            if (tanDir.length() > 0.001) tanDir.normalize();
+            else tanDir.set(0, 1, 0);
+            const tanLen = 0.7;
+            const tanStart = P_pos.clone();
+            const tanEnd = tanStart.clone().add(tanDir.clone().multiplyScalar(tanLen));
+            
+            const tanLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([tanStart, tanEnd]),
+                new THREE.LineBasicMaterial({ color: 0xa29bfe, linewidth: 2 })
+            );
+            dynamicGroup.add(tanLine);
+            const tanArrow = new THREE.ArrowHelper(tanDir, tanStart, tanLen, 0xa29bfe, 0.15, 0.1);
+            dynamicGroup.add(tanArrow);
+
+            // --- 6. 标签 ---
+            const derivLabel = new CSS2DObject(document.createElement('div'));
+            derivLabel.element.textContent = `D_e f = ${dirDeriv.toFixed(3)}`;
+            derivLabel.element.style.cssText = 'color:#a29bfe;font-size:15px;font-weight:bold;background:rgba(0,0,0,0.6);padding:4px 12px;border-radius:6px;border:1px solid #a29bfe;';
+            derivLabel.position.set(-1.2, 3.8, -1.2);
+            dynamicGroup.add(derivLabel);
+
+            const tanLabel = new CSS2DObject(document.createElement('div'));
+            tanLabel.element.textContent = 'D_e f 切线';
+            tanLabel.element.style.cssText = 'color:#a29bfe;font-size:13px;font-weight:bold;text-shadow:1px 1px 2px black;';
+            const mid = tanStart.clone().add(tanEnd).multiplyScalar(0.5);
+            tanLabel.position.set(mid.x, mid.y + 0.25, mid.z);
+            dynamicGroup.add(tanLabel);
+
+            document.getElementById('angleDisplay').textContent = `${Math.round(alphaDeg)}°`;
+        }
+
+        // --- 滑块事件 ---
+        const slider = document.getElementById('angleSlider');
+        slider.addEventListener('input', (e) => updateDirection(parseFloat(e.target.value)));
+        updateDirection(45);
+
+        // --- 动画 ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

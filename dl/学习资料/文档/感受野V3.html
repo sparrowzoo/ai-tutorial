@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNN · 3D 立体卷积 · 顺序步进</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background-color: #0b0e17;
+            color: #eee;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(11, 14, 23, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 16px 24px;
+            border-radius: 14px;
+            border-left: 4px solid #fbbf24;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-width: 380px;
+        }
+        #info h1 {
+            margin: 0 0 4px 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #fbbf24;
+        }
+        #info p {
+            margin: 2px 0;
+            font-size: 0.85rem;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+        #info .highlight {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+        #info .dim {
+            color: #94a3b8;
+            font-size: 0.75rem;
+        }
+        #legend {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(11, 14, 23, 0.8);
+            backdrop-filter: blur(6px);
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: 1px solid #2d3748;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            font-size: 0.75rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #legend .item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 20;
+            background: rgba(11, 14, 23, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 12px 28px;
+            border-radius: 40px;
+            border: 1px solid #2d3748;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+        }
+        #controls button {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid #3d4a5c;
+            color: #e2e8f0;
+            padding: 8px 22px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 80px;
+            letter-spacing: 0.5px;
+        }
+        #controls button:hover {
+            background: rgba(251, 191, 36, 0.15);
+            border-color: #fbbf24;
+            color: #fbbf24;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.08);
+        }
+        #controls button:active {
+            transform: scale(0.94);
+        }
+        #controls button.primary {
+            background: rgba(251, 191, 36, 0.12);
+            border-color: #fbbf24;
+            color: #fbbf24;
+        }
+        #controls button.primary:hover {
+            background: rgba(251, 191, 36, 0.22);
+        }
+        #controls button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        #step-display {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 18px;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 10;
+            border: 1px solid #2d3748;
+            text-align: center;
+        }
+        #step-display .num {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fbbf24;
+        }
+        @media (max-width: 640px) {
+            #info {
+                top: 12px;
+                left: 12px;
+                padding: 10px 16px;
+                max-width: 200px;
+            }
+            #info h1 {
+                font-size: 1.0rem;
+            }
+            #info p {
+                font-size: 0.7rem;
+            }
+            #legend {
+                bottom: 80px;
+                padding: 6px 14px;
+                gap: 10px;
+                font-size: 0.65rem;
+            }
+            #controls {
+                bottom: 16px;
+                padding: 8px 16px;
+                gap: 10px;
+                flex-wrap: wrap;
+                justify-content: center;
+                width: 92%;
+            }
+            #controls button {
+                padding: 6px 14px;
+                font-size: 0.75rem;
+                min-width: 60px;
+            }
+            #step-display {
+                top: 100px;
+                right: 12px;
+                font-size: 0.7rem;
+                padding: 4px 12px;
+            }
+            #step-display .num {
+                font-size: 1.0rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>🧊 3D 立体卷积 · 顺序步进</h1>
+        <p><span class="highlight">感受野</span> 从左到右、从上到下逐格扫描</p>
+        <p class="dim">◀ ▶ 步进遍历 · 粉色连线动态映射 · 🔴 起始标记</p>
+    </div>
+    <div id="step-display">
+        步进 <span class="num" id="stepNum">1</span> / <span id="totalSteps">25</span>
+        <br><span style="font-size:0.75rem;color:#6a7a8a;">位置 (<span id="posText">1</span>, <span id="posText2">1</span>)</span>
+    </div>
+    <div id="legend">
+        <span class="item"><span class="color-dot" style="background:#e8edf5;"></span> 输入层</span>
+        <span class="item"><span class="color-dot" style="background:#fbbf24;box-shadow:0 0 12px #fbbf24;"></span> 感受野</span>
+        <span class="item"><span class="color-dot" style="background:#f472b6;"></span> 卷积核</span>
+        <span class="item"><span class="color-dot" style="background:#34d399;box-shadow:0 0 16px #34d399;"></span> 输出像素</span>
+        <span class="item"><span class="color-dot" style="background:#f472b6;width:20px;height:3px;border-radius:2px;"></span> 映射连线</span>
+        <span class="item"><span class="color-dot" style="background:#ff4444;"></span> 起始标记</span>
+    </div>
+    <div id="controls">
+        <button id="btnPrev">◀ 上一步</button>
+        <button id="btnReset" class="primary">⟲ 重置</button>
+        <button id="btnNext">下一步 ▶</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 场景 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b0e17);
+
+        const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 50);
+        camera.position.set(0, 5, 12);
+        camera.lookAt(0, 1.2, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0';
+        labelRenderer.domElement.style.left = '0';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 1.2, 0);
+        controls.update();
+
+        // --- 灯光 ---
+        const ambient = new THREE.AmbientLight(0x334466, 0.5);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(5, 12, 8);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
+        fillLight.position.set(-4, 4, -3);
+        scene.add(fillLight);
+
+        // --- 地面参考 ---
+        const gridHelper = new THREE.GridHelper(6, 6, 0x2d3748, 0x1a2233);
+        gridHelper.position.y = -0.02;
+        scene.add(gridHelper);
+
+        // ============================================================
+        // 1. 输入层 (底部)
+        // ============================================================
+        const inputGroup = new THREE.Group();
+        scene.add(inputGroup);
+
+        const gridSize = 7;
+        const spacing = 0.7;
+        const offset = (gridSize - 1) * spacing / 2;
+        const inputY = 0;
+
+        const baseMat = new THREE.MeshStandardMaterial({
+            color: 0x0f1a2b,
+            transparent: true,
+            opacity: 0.5,
+            roughness: 0.6,
+            metalness: 0.1,
+        });
+        const basePlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(gridSize * spacing + 0.4, gridSize * spacing + 0.4),
+            baseMat
+        );
+        basePlane.rotation.x = -Math.PI / 2;
+        basePlane.position.set(0, inputY - 0.01, 0);
+        inputGroup.add(basePlane);
+
+        const gridMat = new THREE.LineBasicMaterial({ color: 0x4a5a7a, transparent: true, opacity: 0.4 });
+        for (let i = 0; i < gridSize; i++) {
+            const pos = -offset + i * spacing;
+            const hGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-offset, inputY + 0.005, pos),
+                new THREE.Vector3(offset, inputY + 0.005, pos)
+            ]);
+            inputGroup.add(new THREE.Line(hGeo, gridMat));
+            const vGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(pos, inputY + 0.005, -offset),
+                new THREE.Vector3(pos, inputY + 0.005, offset)
+            ]);
+            inputGroup.add(new THREE.Line(vGeo, gridMat));
+        }
+
+        const pixelMat = new THREE.MeshStandardMaterial({
+            color: 0xe8edf5,
+            roughness: 0.3,
+            metalness: 0.05,
+            transparent: true,
+            opacity: 0.7,
+        });
+        const inputPixels = [];
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const x = -offset + i * spacing;
+                const z = -offset + j * spacing;
+                const geo = new THREE.BoxGeometry(spacing * 0.85, 0.04, spacing * 0.85);
+                const mesh = new THREE.Mesh(geo, pixelMat.clone());
+                mesh.position.set(x, inputY + 0.02, z);
+                mesh.userData = { row: i, col: j };
+                inputGroup.add(mesh);
+                inputPixels.push(mesh);
+            }
+        }
+
+        const inputLabelDiv = document.createElement('div');
+        inputLabelDiv.textContent = '📥 输入层 (7×7)';
+        inputLabelDiv.style.cssText = 'color:#e8edf5;font-size:12px;font-weight:600;background:rgba(0,0,0,0.6);padding:2px 12px;border-radius:16px;border:1px solid rgba(255,255,255,0.1);';
+        const inputLabel = new CSS2DObject(inputLabelDiv);
+        inputLabel.position.set(0, -0.3, -offset - 0.6);
+        inputGroup.add(inputLabel);
+
+        // ============================================================
+        // 2. 起始标记 (红色)
+        // ============================================================
+        const startGroup = new THREE.Group();
+        scene.add(startGroup);
+
+        const startX = -offset + 1 * spacing;
+        const startZ = -offset + 1 * spacing;
+        const dotGeo = new THREE.SphereGeometry(0.12, 12, 12);
+        const dotMat = new THREE.MeshStandardMaterial({
+            color: 0xff4444,
+            emissive: 0xff4444,
+            emissiveIntensity: 0.6,
+            roughness: 0.2,
+            metalness: 0.3,
+        });
+        const dot = new THREE.Mesh(dotGeo, dotMat);
+        dot.position.set(startX, inputY + 0.12, startZ);
+        startGroup.add(dot);
+
+        const glowGeo = new THREE.SphereGeometry(0.18, 12, 12);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0xff4444,
+            transparent: true,
+            opacity: 0.25,
+        });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.position.set(startX, inputY + 0.10, startZ);
+        startGroup.add(glow);
+
+        const lineMatStart = new THREE.LineBasicMaterial({
+            color: 0xff4444,
+            transparent: true,
+            opacity: 0.2,
+            dashed: true,
+        });
+        const linePoints = [
+            new THREE.Vector3(startX, inputY + 0.15, startZ),
+            new THREE.Vector3(startX, 1.1, startZ)
+        ];
+        const lineGeoStart = new THREE.BufferGeometry().setFromPoints(linePoints);
+        const lineStart = new THREE.Line(lineGeoStart, lineMatStart);
+        startGroup.add(lineStart);
+
+        const startLabelDiv = document.createElement('div');
+        startLabelDiv.textContent = '🔴 起始 (0,0)';
+        startLabelDiv.style.cssText = 'color:#ff6666;font-size:11px;font-weight:600;text-shadow:0 0 20px rgba(255,68,68,0.4);background:rgba(0,0,0,0.7);padding:2px 10px;border-radius:12px;border:1px solid rgba(255,68,68,0.3);';
+        const startLabel = new CSS2DObject(startLabelDiv);
+        startLabel.position.set(startX, inputY + 0.4, startZ);
+        startGroup.add(startLabel);
+
+        // ============================================================
+        // 3. 卷积核 (中间层)
+        // ============================================================
+        const kernelY = 1.2;
+        const kernelGroup = new THREE.Group();
+        scene.add(kernelGroup);
+
+        const boxSize = 3 * spacing * 0.85;
+        const kernelMatLine = new THREE.LineBasicMaterial({
+            color: 0xf472b6,
+            transparent: true,
+            opacity: 0.9,
+        });
+        const boxPoints = [
+            new THREE.Vector3(-boxSize / 2, 0, -boxSize / 2),
+            new THREE.Vector3(boxSize / 2, 0, -boxSize / 2),
+            new THREE.Vector3(boxSize / 2, 0, boxSize / 2),
+            new THREE.Vector3(-boxSize / 2, 0, boxSize / 2),
+            new THREE.Vector3(-boxSize / 2, 0, -boxSize / 2),
+        ];
+        const boxGeo = new THREE.BufferGeometry().setFromPoints(boxPoints);
+        const boxLine = new THREE.Line(boxGeo, kernelMatLine);
+        kernelGroup.add(boxLine);
+
+        const gridLineMat = new THREE.LineBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.2 });
+        for (let i = 1; i < 3; i++) {
+            const t = -boxSize / 2 + i * boxSize / 3;
+            const hLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-boxSize / 2, 0.005, t),
+                    new THREE.Vector3(boxSize / 2, 0.005, t)
+                ]),
+                gridLineMat
+            );
+            kernelGroup.add(hLine);
+            const vLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(t, 0.005, -boxSize / 2),
+                    new THREE.Vector3(t, 0.005, boxSize / 2)
+                ]),
+                gridLineMat
+            );
+            kernelGroup.add(vLine);
+        }
+
+        const weightMat = new THREE.MeshStandardMaterial({
+            color: 0xf472b6,
+            emissive: 0xf472b6,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.5,
+        });
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                const wx = -boxSize / 2 + (i + 0.5) * boxSize / 3;
+                const wz = -boxSize / 2 + (j + 0.5) * boxSize / 3;
+                const sphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.06, 8, 8),
+                    weightMat.clone()
+                );
+                sphere.position.set(wx, 0.015, wz);
+                kernelGroup.add(sphere);
+            }
+        }
+
+        const kernelLabelDiv = document.createElement('div');
+        kernelLabelDiv.textContent = '⚙️ 卷积核 (3×3)';
+        kernelLabelDiv.style.cssText = 'color:#f472b6;font-size:12px;font-weight:600;text-shadow:0 0 16px rgba(244,114,182,0.3);background:rgba(0,0,0,0.6);padding:2px 10px;border-radius:16px;border:1px solid rgba(244,114,182,0.2);';
+        const kernelLabel = new CSS2DObject(kernelLabelDiv);
+        kernelLabel.position.set(0, -0.4, 0);
+        kernelGroup.add(kernelLabel);
+
+        // ============================================================
+        // 4. 感受野高亮
+        // ============================================================
+        const highlightGroup = new THREE.Group();
+        scene.add(highlightGroup);
+
+        // ============================================================
+        // 5. 输出层 (顶部) 
+        // ============================================================
+        const outputY = 2.6;
+        const outputGroup = new THREE.Group();
+        scene.add(outputGroup);
+
+        const fmapSize = 5;
+        const fmapSpacing = 0.7;
+        const fmapOffset = (fmapSize - 1) * fmapSpacing / 2;
+
+        const outBaseMat = new THREE.MeshStandardMaterial({
+            color: 0x065f46,
+            transparent: true,
+            opacity: 0.15,
+            roughness: 0.5,
+            metalness: 0.1,
+        });
+        const outBase = new THREE.Mesh(
+            new THREE.PlaneGeometry(fmapSize * fmapSpacing + 0.4, fmapSize * fmapSpacing + 0.4),
+            outBaseMat
+        );
+        outBase.rotation.x = -Math.PI / 2;
+        outBase.position.set(0, outputY - 0.01, 0);
+        outputGroup.add(outBase);
+
+        const outGridMat = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.15 });
+        for (let i = 0; i < fmapSize; i++) {
+            const pos = -fmapOffset + i * fmapSpacing;
+            const hLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-fmapOffset, outputY + 0.005, pos),
+                    new THREE.Vector3(fmapOffset, outputY + 0.005, pos)
+                ]),
+                outGridMat
+            );
+            outputGroup.add(hLine);
+            const vLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(pos, outputY + 0.005, -fmapOffset),
+                    new THREE.Vector3(pos, outputY + 0.005, fmapOffset)
+                ]),
+                outGridMat
+            );
+            outputGroup.add(vLine);
+        }
+
+        const outputPixels = [];
+        for (let i = 0; i < fmapSize; i++) {
+            for (let j = 0; j < fmapSize; j++) {
+                const x = -fmapOffset + j * fmapSpacing;
+                const z = -fmapOffset + i * fmapSpacing;
+                const mat = new THREE.MeshStandardMaterial({
+                    color: 0x34d399,
+                    emissive: 0x34d399,
+                    emissiveIntensity: 0.05,
+                    transparent: true,
+                    opacity: 0.15,
+                });
+                const mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(fmapSpacing * 0.85, 0.04, fmapSpacing * 0.85),
+                    mat
+                );
+                mesh.position.set(x, outputY + 0.02, z);
+                mesh.userData = { outRow: i, outCol: j };
+                outputGroup.add(mesh);
+                outputPixels.push(mesh);
+            }
+        }
+
+        const outLabelDiv = document.createElement('div');
+        outLabelDiv.textContent = '📤 输出层 (5×5) · 1个像素激活';
+        outLabelDiv.style.cssText = 'color:#34d399;font-size:12px;font-weight:600;text-shadow:0 0 20px rgba(52,211,153,0.3);background:rgba(0,0,0,0.6);padding:2px 12px;border-radius:16px;border:1px solid rgba(52,211,153,0.2);';
+        const outLabel = new CSS2DObject(outLabelDiv);
+        outLabel.position.set(0, outputY + 0.5, -fmapOffset - 0.6);
+        outputGroup.add(outLabel);
+
+        // ============================================================
+        // 6. 动态映射连线
+        // ============================================================
+        const lineGroup = new THREE.Group();
+        scene.add(lineGroup);
+
+        // ============================================================
+        // 7. 状态管理 - 顺序步进
+        // ============================================================
+        const maxRow = gridSize - 3; // 4 (0~4)
+        const maxCol = gridSize - 3; // 4 (0~4)
+        const totalSteps = (maxRow + 1) * (maxCol + 1); // 25
+
+        let currentStep = 0; // 0 ~ 24
+
+        // 根据步数计算行列 (从左到右、从上到下)
+        function getPositionFromStep(step) {
+            const row = Math.floor(step / (maxCol + 1));
+            const col = step % (maxCol + 1);
+            return { row, col };
+        }
+
+        // ============================================================
+        // 8. 更新函数
+        // ============================================================
+        function updateKernel(rowIdx, colIdx) {
+            const centerX = -offset + (colIdx + 1) * spacing;
+            const centerZ = -offset + (rowIdx + 1) * spacing;
+
+            // 1. 更新卷积核位置
+            kernelGroup.position.set(centerX, kernelY, centerZ);
+
+            // 2. 更新感受野高亮
+            while (highlightGroup.children.length > 0) {
+                const child = highlightGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+                highlightGroup.remove(child);
+            }
+
+            const half = boxSize / 2;
+            let count = 0;
+            for (const pixel of inputPixels) {
+                const dx = Math.abs(pixel.position.x - centerX);
+                const dz = Math.abs(pixel.position.z - centerZ);
+                if (dx < half && dz < half) {
+                    count++;
+                    const geo = new THREE.BoxGeometry(spacing * 0.85, 0.06, spacing * 0.85);
+                    const mat = new THREE.MeshStandardMaterial({
+                        color: 0xfbbf24,
+                        emissive: 0xfbbf24,
+                        emissiveIntensity: 0.6,
+                        transparent: true,
+                        opacity: 0.9,
+                    });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.copy(pixel.position);
+                    mesh.position.y = inputY + 0.05;
+                    highlightGroup.add(mesh);
+                }
+            }
+
+            // 3. 更新输出层：1个像素高亮
+            const activeRow = rowIdx;
+            const activeCol = colIdx;
+            const activeIdx = activeRow * fmapSize + activeCol;
+
+            outputPixels.forEach((p, idx) => {
+                const isActive = (idx === activeIdx);
+                if (isActive) {
+                    p.material.color.setHex(0x34d399);
+                    p.material.emissive.setHex(0x34d399);
+                    p.material.emissiveIntensity = 1.0;
+                    p.material.opacity = 0.95;
+                    p.scale.set(1.4, 1, 1.4);
+                } else {
+                    p.material.color.setHex(0x34d399);
+                    p.material.emissive.setHex(0x34d399);
+                    p.material.emissiveIntensity = 0.05;
+                    p.material.opacity = 0.15;
+                    p.scale.set(1, 1, 1);
+                }
+            });
+
+            // 4. 更新动态映射连线
+            while (lineGroup.children.length > 0) {
+                const child = lineGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+                lineGroup.remove(child);
+            }
+
+            const outX = -fmapOffset + activeCol * fmapSpacing;
+            const outZ = -fmapOffset + activeRow * fmapSpacing;
+
+            const start = new THREE.Vector3(centerX, kernelY + 0.1, centerZ);
+            const end = new THREE.Vector3(outX, outputY + 0.02, outZ);
+
+            const mid = new THREE.Vector3(
+                (start.x + end.x) / 2,
+                (start.y + end.y) / 2 + 0.6,
+                (start.z + end.z) / 2
+            );
+
+            const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+            const points = curve.getPoints(20);
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0xf472b6,
+                transparent: true,
+                opacity: 0.7,
+            });
+            const line = new THREE.Line(lineGeo, lineMat);
+            lineGroup.add(line);
+
+            const dotMat = new THREE.MeshBasicMaterial({
+                color: 0xf472b6,
+                transparent: true,
+                opacity: 0.8,
+            });
+            const dot = new THREE.Mesh(
+                new THREE.SphereGeometry(0.06, 8, 8),
+                dotMat
+            );
+            dot.position.copy(points[Math.floor(points.length * 0.5)]);
+            lineGroup.add(dot);
+
+            // 5. 更新UI
+            const stepNum = currentStep + 1;
+            document.getElementById('stepNum').textContent = stepNum;
+            document.getElementById('totalSteps').textContent = totalSteps;
+            document.getElementById('posText').textContent = rowIdx + 1;
+            document.getElementById('posText2').textContent = colIdx + 1;
+
+            // 更新按钮状态
+            document.getElementById('btnPrev').disabled = (currentStep === 0);
+            document.getElementById('btnNext').disabled = (currentStep === totalSteps - 1);
+        }
+
+        // ============================================================
+        // 9. 步进逻辑
+        // ============================================================
+        function goToStep(step) {
+            if (step < 0) step = 0;
+            if (step >= totalSteps) step = totalSteps - 1;
+            currentStep = step;
+            const pos = getPositionFromStep(step);
+            updateKernel(pos.row, pos.col);
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps - 1) {
+                goToStep(currentStep + 1);
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 0) {
+                goToStep(currentStep - 1);
+            }
+        }
+
+        function resetPosition() {
+            goToStep(0);
+        }
+
+        // ============================================================
+        // 10. 绑定事件
+        // ============================================================
+        document.getElementById('btnNext').addEventListener('click', nextStep);
+        document.getElementById('btnPrev').addEventListener('click', prevStep);
+        document.getElementById('btnReset').addEventListener('click', resetPosition);
+
+        // 键盘支持：左右箭头步进
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                nextStep();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                prevStep();
+            } else if (e.key === 'r' || e.key === 'R') {
+                resetPosition();
+            }
+        });
+
+        // ============================================================
+        // 11. 初始化 & 动画
+        // ============================================================
+        resetPosition();
+
+        // 起始标记脉冲动画
+        let time = 0;
+
+        function animateStartMarker() {
+            time += 0.03;
+            const pulse = 0.6 + 0.4 * Math.sin(time * 2);
+            glow.material.opacity = 0.15 * pulse;
+            glow.scale.setScalar(1 + 0.2 * (1 - pulse));
+            requestAnimationFrame(animateStartMarker);
+        }
+        animateStartMarker();
+
+        window.addEventListener('resize', () => {
+            const w = window.innerWidth,
+                h = window.innerHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            labelRenderer.setSize(w, h);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

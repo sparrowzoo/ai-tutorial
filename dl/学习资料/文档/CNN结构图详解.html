@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNN卷积层 · 结构 + 映射 完整图解</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #f0f4fc;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 24px 48px rgba(0, 20, 40, 0.12);
+            padding: 2rem 2rem 2.5rem;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0b1e33;
+            border-bottom: 2px solid #eef2f7;
+            padding-bottom: 0.8rem;
+            margin-bottom: 0.4rem;
+        }
+        h1 small {
+            font-size: 1rem;
+            font-weight: 400;
+            color: #2c3e50;
+            background: #eef4ff;
+            padding: 0.2rem 1.2rem;
+            border-radius: 40px;
+            display: inline-block;
+            margin-top: 0.3rem;
+        }
+        .subtitle {
+            color: #4b5f7a;
+            font-size: 1rem;
+            margin-bottom: 1.8rem;
+            border-left: 4px solid #1a4b8c;
+            padding-left: 1rem;
+        }
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1a4b8c;
+            margin: 2rem 0 1rem 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title span {
+            background: #eef4ff;
+            padding: 0.1rem 0.8rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #2c3e50;
+        }
+        .canvas-wrapper {
+            background: #fafcff;
+            border-radius: 24px;
+            border: 1px solid #e2eaf5;
+            padding: 0.8rem 0.3rem 0.3rem 0.3rem;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+            margin: 0.5rem 0 1.5rem 0;
+        }
+        svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-width: 1150px;
+            background: #fafcff;
+            border-radius: 16px;
+        }
+        .legend-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.2rem 2.5rem;
+            margin: 1rem 0 1.5rem 0;
+            padding: 0.6rem 1.6rem;
+            background: #f5f9ff;
+            border-radius: 60px;
+            border: 1px solid #e2eaf5;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: #1f3a5f;
+            font-weight: 500;
+        }
+        .color-box {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+        .color-box.input {
+            background: #a8c8f0;
+            border-color: #3a7abf;
+        }
+        .color-box.kernel {
+            background: #f5a0b0;
+            border-color: #c0405a;
+        }
+        .color-box.fmap {
+            background: #8bc99b;
+            border-color: #2a7a3a;
+        }
+        .color-box.pixel {
+            background: #f7d070;
+            border-color: #c09030;
+        }
+        .color-box.group {
+            background: #f7d070;
+            border-color: #c09030;
+        }
+        .color-box.multi {
+            background: #c9a8e8;
+            border-color: #7a4a9a;
+        }
+        .summary-box {
+            padding: 1rem 1.8rem;
+            background: #f5f9ff;
+            border-radius: 20px;
+            border-left: 6px solid #1a4b8c;
+            line-height: 1.9;
+            font-size: 0.95rem;
+            color: #1f3a5f;
+            margin-top: 1.5rem;
+        }
+        .summary-box strong {
+            color: #0b2b4a;
+        }
+        .summary-box .highlight {
+            background: #f7d070;
+            padding: 0.1rem 0.5rem;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .summary-box .highlight-pink {
+            background: #f5a0b0;
+            padding: 0.1rem 0.5rem;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .summary-box .highlight-purple {
+            background: #c9a8e8;
+            padding: 0.1rem 0.5rem;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .divider {
+            height: 2px;
+            background: #eef2f7;
+            margin: 2rem 0;
+        }
+        @media (max-width: 700px) {
+            .container {
+                padding: 1.2rem;
+            }
+            h1 {
+                font-size: 1.4rem;
+            }
+            .legend-bar {
+                gap: 0.8rem;
+            }
+            .summary-box {
+                font-size: 0.85rem;
+                padding: 0.8rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- 标题 -->
+        <h1>
+            🧠 CNN 卷积层 · 结构 + 映射 完整图解
+            <small>从“核→特征图”到“一对一 / 多对一 / 一对多”</small>
+        </h1>
+        <div class="subtitle">
+            本文用两张连贯通图，讲透卷积层的内部结构、通道含义，以及三种映射关系在实际场景中的应用。
+        </div>
+
+        <!-- ========================================================== -->
+        <!-- 第一部分：卷积层结构（输入 → 核 → 特征图 → 通道）        -->
+        <!-- ========================================================== -->
+        <div class="section-title">
+            📐 第一部分：卷积层结构
+            <span>输入 · 核 · 特征图 · 通道</span>
+        </div>
+
+        <div class="canvas-wrapper">
+            <svg viewBox="0 0 1150 520" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="shadow" x="-5%" y="-5%" width="120%" height="120%">
+                        <feDropShadow dx="2" dy="4" stdDeviation="4" flood-opacity="0.12" />
+                    </filter>
+                    <filter id="shadowLight" x="-5%" y="-5%" width="120%" height="120%">
+                        <feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.08" />
+                    </filter>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <linearGradient id="gradR" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f5a0a0;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#d07070;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradG" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#90d090;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#60b060;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradB" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#9090d0;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#6060b0;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradKernel" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f5a0b0;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#e08090;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradFmap" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#8bc99b;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#6ab87a;stop-opacity:1" />
+                    </linearGradient>
+                    <marker id="arrow" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+                        <path d="M0,0 L10,4 L0,8 Z" fill="#7d9ed4" />
+                    </marker>
+                    <marker id="arrowGreen" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+                        <path d="M0,0 L10,4 L0,8 Z" fill="#2a7a3a" />
+                    </marker>
+                </defs>
+
+                <!-- 标题 -->
+                <text x="40" y="36" font-size="15" font-weight="700" fill="#1f3a5f" font-family="Segoe UI, sans-serif">📦 输入层 (RGB)</text>
+                <text x="300" y="36" font-size="15" font-weight="700" fill="#1f3a5f" font-family="Segoe UI, sans-serif">⚙️ 卷积核 (3个)</text>
+                <text x="680" y="36" font-size="15" font-weight="700" fill="#1f3a5f" font-family="Segoe UI, sans-serif">📤 输出特征图 (3通道)</text>
+
+                <!-- 输入 RGB -->
+                <g filter="url(#shadowLight)">
+                    <rect x="40" y="65" width="55" height="55" rx="6" fill="url(#gradR)" stroke="#b04040" stroke-width="2" />
+                    <text x="67" y="98" font-size="11" fill="#4a1a1a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">R</text>
+                    <rect x="105" y="65" width="55" height="55" rx="6" fill="url(#gradG)" stroke="#309030" stroke-width="2" />
+                    <text x="132" y="98" font-size="11" fill="#1a3a1a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">G</text>
+                    <rect x="170" y="65" width="55" height="55" rx="6" fill="url(#gradB)" stroke="#4040b0" stroke-width="2" />
+                    <text x="197" y="98" font-size="11" fill="#1a1a4a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">B</text>
+                    <text x="40" y="140" font-size="9" fill="#2a4c7a" font-family="Segoe UI, sans-serif">C_in = 3</text>
+                </g>
+
+                <!-- 卷积核 -->
+                <g filter="url(#shadow)">
+                    <g transform="translate(320, 58)">
+                        <rect x="0" y="0" width="44" height="44" rx="4" fill="url(#gradKernel)" stroke="#c0405a" stroke-width="2.5" />
+                        <text x="22" y="20" font-size="9" fill="#4a1a2a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核1</text>
+                        <text x="22" y="34" font-size="8" fill="#4a1a2a" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3×3</text>
+                    </g>
+                    <g transform="translate(320, 125)">
+                        <rect x="0" y="0" width="44" height="44" rx="4" fill="url(#gradKernel)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="22" y="20" font-size="9" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核2</text>
+                        <text x="22" y="34" font-size="8" fill="#1a3a22" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3×3</text>
+                    </g>
+                    <g transform="translate(320, 192)">
+                        <rect x="0" y="0" width="44" height="44" rx="4" fill="url(#gradKernel)" stroke="#7a4a9a" stroke-width="2.5" />
+                        <text x="22" y="20" font-size="9" fill="#3a1a4a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核3</text>
+                        <text x="22" y="34" font-size="8" fill="#3a1a4a" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3×3</text>
+                    </g>
+                    <text x="320" y="268" font-size="9" fill="#4a2a3a" font-family="Segoe UI, sans-serif">N = 3 个核</text>
+                    <text x="320" y="283" font-size="8" fill="#5a3a4a" font-family="Segoe UI, sans-serif">深度 = C_in = 3</text>
+                </g>
+
+                <!-- 连线：输入 → 核 -->
+                <path d="M225,90 Q270,80 320,80" stroke="#7d9ed4" stroke-width="1.5" stroke-dasharray="4 4" fill="none" opacity="0.6" />
+                <path d="M225,90 Q270,147 320,147" stroke="#7d9ed4" stroke-width="1.5" stroke-dasharray="4 4" fill="none" opacity="0.6" />
+                <path d="M225,90 Q270,214 320,214" stroke="#7d9ed4" stroke-width="1.5" stroke-dasharray="4 4" fill="none" opacity="0.6" />
+
+                <!-- 输出特征图 -->
+                <g filter="url(#shadowLight)">
+                    <g transform="translate(700, 50)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradFmap)" stroke="#c0405a" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">边缘</text>
+                        <text x="40" y="52" font-size="9" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">30×30</text>
+                        <rect x="0" y="0" width="26" height="26" fill="#f7d070" stroke="#c09030" stroke-width="2" rx="2" filter="url(#glow)" />
+                        <text x="13" y="18" font-size="10" fill="#6a3a1a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">27</text>
+                    </g>
+                    <g transform="translate(700, 145)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradFmap)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">纹理</text>
+                        <text x="40" y="52" font-size="9" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">30×30</text>
+                        <rect x="0" y="0" width="26" height="26" fill="#f7d070" stroke="#c09030" stroke-width="2" rx="2" filter="url(#glow)" />
+                        <text x="13" y="18" font-size="10" fill="#6a3a1a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">19</text>
+                    </g>
+                    <g transform="translate(700, 240)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradFmap)" stroke="#7a4a9a" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">颜色</text>
+                        <text x="40" y="52" font-size="9" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">30×30</text>
+                        <rect x="0" y="0" width="26" height="26" fill="#f7d070" stroke="#c09030" stroke-width="2" rx="2" filter="url(#glow)" />
+                        <text x="13" y="18" font-size="10" fill="#6a3a1a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">35</text>
+                    </g>
+                </g>
+
+                <!-- 三条连线：核 → 特征图 -->
+                <path d="M364,80 Q500,80 700,90" stroke="#c0405a" stroke-width="2.5" stroke-dasharray="6 4" fill="none" opacity="0.8" marker-end="url(#arrowGreen)" />
+                <text x="520" y="75" font-size="10" fill="#c0405a" font-weight="700" font-family="Segoe UI, sans-serif">核1 →</text>
+
+                <path d="M364,147 Q500,147 700,185" stroke="#2a7a3a" stroke-width="2.5" stroke-dasharray="6 4" fill="none" opacity="0.8" marker-end="url(#arrowGreen)" />
+                <text x="520" y="142" font-size="10" fill="#2a7a3a" font-weight="700" font-family="Segoe UI, sans-serif">核2 →</text>
+
+                <path d="M364,214 Q500,214 700,280" stroke="#7a4a9a" stroke-width="2.5" stroke-dasharray="6 4" fill="none" opacity="0.8" marker-end="url(#arrowGreen)" />
+                <text x="520" y="209" font-size="10" fill="#7a4a9a" font-weight="700" font-family="Segoe UI, sans-serif">核3 →</text>
+
+                <!-- 底部总结 -->
+                <g transform="translate(40, 370)">
+                    <rect x="0" y="0" width="1070" height="120" rx="16" fill="#f5f9ff" stroke="#d5dce6" stroke-width="1.5" filter="url(#shadowLight)" />
+                    <text x="24" y="26" font-size="14" font-weight="700" fill="#1a4b8c" font-family="Segoe UI, sans-serif">📌 卷积层结构：核 → 特征图 → 通道</text>
+                    <text x="24" y="52" font-size="12" fill="#1f3a5f" font-family="Segoe UI, sans-serif">
+                        <tspan font-weight="700" fill="#c0405a">① 一个卷积核</tspan> 在输入上滑动点积 → 生成 <tspan font-weight="700" fill="#2a7a3a">一张二维特征图</tspan>
+                    </text>
+                    <text x="24" y="74" font-size="12" fill="#1f3a5f" font-family="Segoe UI, sans-serif">
+                        <tspan font-weight="700" fill="#c0405a">② N 个卷积核</tspan> → <tspan font-weight="700" fill="#2a7a3a">N 张特征图</tspan> → <tspan font-weight="700" fill="#2a7a3a">N 个输出通道</tspan>
+                    </text>
+                    <text x="24" y="96" font-size="12" fill="#1f3a5f" font-family="Segoe UI, sans-serif">
+                        <tspan font-weight="700" fill="#c0405a">③ 每个核深度 = 输入通道数</tspan>（图中为 3），<tspan font-weight="700">通道数 = 该层核个数</tspan>
+                    </text>
+                </g>
+            </svg>
+        </div>
+
+        <!-- 图例 -->
+        <div class="legend-bar">
+            <span class="legend-item"><span class="color-box input"></span> 输入 (R/G/B)</span>
+            <span class="legend-item"><span class="color-box kernel"></span> 卷积核</span>
+            <span class="legend-item"><span class="color-box fmap"></span> 输出特征图</span>
+            <span class="legend-item"><span class="color-box pixel"></span> 点积 → 像素</span>
+        </div>
+
+        <!-- 第一部分总结 -->
+        <div class="summary-box">
+            <strong>🧩 核心结论（第一部分）</strong><br>
+            • <span class="highlight-pink">一个卷积核</span> 独立滑动点积 → <span class="highlight">一张特征图</span> → <span class="highlight">一个输出通道</span>。<br>
+            • <strong>N 个核 → N 张特征图 → N 个输出通道</strong>（堆叠成输出数据）。<br>
+            • 每个核的 <strong>深度 = 输入通道数</strong>（图中为 3，对应 RGB）。
+        </div>
+
+        <!-- ========================================================== -->
+        <!-- 分割线                                                  -->
+        <!-- ========================================================== -->
+        <div class="divider"></div>
+
+        <!-- ========================================================== -->
+        <!-- 第二部分：三种映射关系（一对一 / 多对一 / 一对多）        -->
+        <!-- ========================================================== -->
+        <div class="section-title">
+            🔄 第二部分：三种映射关系
+            <span>标准卷积 · 分组卷积 · 转置卷积</span>
+        </div>
+
+        <div class="canvas-wrapper">
+            <svg viewBox="0 0 1150 580" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="shadow2" x="-5%" y="-5%" width="120%" height="120%">
+                        <feDropShadow dx="2" dy="4" stdDeviation="4" flood-opacity="0.12" />
+                    </filter>
+                    <filter id="shadowLight2" x="-5%" y="-5%" width="120%" height="120%">
+                        <feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.08" />
+                    </filter>
+                    <filter id="glow2" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <linearGradient id="gradKernel2" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f5a0b0;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#e08090;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradFmap2" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#8bc99b;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#6ab87a;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradGroup2" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f7d070;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#e8b850;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="gradMulti2" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#c9a8e8;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#b088d8;stop-opacity:1" />
+                    </linearGradient>
+                    <marker id="arrow1b" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+                        <path d="M0,0 L10,4 L0,8 Z" fill="#c0405a" />
+                    </marker>
+                    <marker id="arrow2b" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+                        <path d="M0,0 L10,4 L0,8 Z" fill="#2a7a3a" />
+                    </marker>
+                    <marker id="arrow3b" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+                        <path d="M0,0 L10,4 L0,8 Z" fill="#7a4a9a" />
+                    </marker>
+                </defs>
+
+                <!-- 三列标题 -->
+                <text x="40" y="36" font-size="15" font-weight="700" fill="#c0405a" font-family="Segoe UI, sans-serif">① 一对一（标准卷积）</text>
+                <text x="430" y="36" font-size="15" font-weight="700" fill="#7a4a9a" font-family="Segoe UI, sans-serif">② 多对一（分组/逐点卷积）</text>
+                <text x="820" y="36" font-size="15" font-weight="700" fill="#2a7a3a" font-family="Segoe UI, sans-serif">③ 一对多（转置卷积）</text>
+
+                <!-- 第1列：一对一 -->
+                <g filter="url(#shadow2)">
+                    <g transform="translate(40, 70)">
+                        <rect x="0" y="0" width="50" height="50" rx="4" fill="url(#gradKernel2)" stroke="#c0405a" stroke-width="2.5" />
+                        <text x="25" y="22" font-size="10" fill="#4a1a2a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核1</text>
+                        <text x="25" y="38" font-size="8" fill="#4a1a2a" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3×3</text>
+                    </g>
+                    <g transform="translate(40, 145)">
+                        <rect x="0" y="0" width="50" height="50" rx="4" fill="url(#gradKernel2)" stroke="#c0405a" stroke-width="2.5" />
+                        <text x="25" y="22" font-size="10" fill="#4a1a2a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核2</text>
+                        <text x="25" y="38" font-size="8" fill="#4a1a2a" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3×3</text>
+                    </g>
+                    <g transform="translate(40, 220)">
+                        <rect x="0" y="0" width="50" height="50" rx="4" fill="url(#gradKernel2)" stroke="#c0405a" stroke-width="2.5" />
+                        <text x="25" y="22" font-size="10" fill="#4a1a2a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核3</text>
+                        <text x="25" y="38" font-size="8" fill="#4a1a2a" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3×3</text>
+                    </g>
+                </g>
+                <path d="M90,95 L170,95" stroke="#c0405a" stroke-width="3" fill="none" marker-end="url(#arrow1b)" />
+                <path d="M90,170 L170,170" stroke="#c0405a" stroke-width="3" fill="none" marker-end="url(#arrow1b)" />
+                <path d="M90,245 L170,245" stroke="#c0405a" stroke-width="3" fill="none" marker-end="url(#arrow1b)" />
+                <g filter="url(#shadowLight2)">
+                    <g transform="translate(180, 65)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradFmap2)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">边缘</text>
+                        <text x="40" y="52" font-size="9" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">30×30</text>
+                    </g>
+                    <g transform="translate(180, 145)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradFmap2)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">纹理</text>
+                        <text x="40" y="52" font-size="9" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">30×30</text>
+                    </g>
+                    <g transform="translate(180, 220)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradFmap2)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">颜色</text>
+                        <text x="40" y="52" font-size="9" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">30×30</text>
+                    </g>
+                </g>
+                <text x="40" y="330" font-size="11" fill="#4a2a3a" font-family="Segoe UI, sans-serif">✅ 1个核 → 1个输出通道</text>
+                <text x="40" y="348" font-size="10" fill="#5a3a4a" font-family="Segoe UI, sans-serif">ResNet / VGG / YOLO</text>
+
+                <!-- 第2列：多对一 -->
+                <g filter="url(#shadow2)">
+                    <g transform="translate(430, 70)">
+                        <rect x="0" y="0" width="40" height="40" rx="4" fill="url(#gradMulti2)" stroke="#7a4a9a" stroke-width="2" />
+                        <text x="20" y="18" font-size="8" fill="#3a1a4a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核1</text>
+                        <text x="20" y="30" font-size="7" fill="#3a1a4a" text-anchor="middle" font-family="Segoe UI, sans-serif">1×1</text>
+                    </g>
+                    <g transform="translate(430, 130)">
+                        <rect x="0" y="0" width="40" height="40" rx="4" fill="url(#gradMulti2)" stroke="#7a4a9a" stroke-width="2" />
+                        <text x="20" y="18" font-size="8" fill="#3a1a4a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核2</text>
+                        <text x="20" y="30" font-size="7" fill="#3a1a4a" text-anchor="middle" font-family="Segoe UI, sans-serif">1×1</text>
+                    </g>
+                    <g transform="translate(430, 190)">
+                        <rect x="0" y="0" width="40" height="40" rx="4" fill="url(#gradMulti2)" stroke="#7a4a9a" stroke-width="2" />
+                        <text x="20" y="18" font-size="8" fill="#3a1a4a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核3</text>
+                        <text x="20" y="30" font-size="7" fill="#3a1a4a" text-anchor="middle" font-family="Segoe UI, sans-serif">1×1</text>
+                    </g>
+                    <text x="430" y="260" font-size="9" fill="#4a2a6a" font-family="Segoe UI, sans-serif">多个 1×1 核</text>
+                    <text x="430" y="275" font-size="8" fill="#5a3a7a" font-family="Segoe UI, sans-serif">深度 = 输入通道数</text>
+                </g>
+                <path d="M470,90 L550,120" stroke="#7a4a9a" stroke-width="3" fill="none" marker-end="url(#arrow3b)" />
+                <path d="M470,150 L550,120" stroke="#7a4a9a" stroke-width="3" fill="none" marker-end="url(#arrow3b)" />
+                <path d="M470,210 L550,120" stroke="#7a4a9a" stroke-width="3" fill="none" marker-end="url(#arrow3b)" />
+                <g filter="url(#shadowLight2)">
+                    <g transform="translate(560, 90)">
+                        <rect x="0" y="0" width="80" height="80" rx="6" fill="url(#gradGroup2)" stroke="#c09030" stroke-width="2.5" />
+                        <text x="40" y="32" font-size="11" fill="#6a3a1a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">融合</text>
+                        <text x="40" y="52" font-size="9" fill="#6a3a1a" text-anchor="middle" font-family="Segoe UI, sans-serif">1个通道</text>
+                    </g>
+                </g>
+                <text x="430" y="330" font-size="11" fill="#4a2a6a" font-family="Segoe UI, sans-serif">🔀 多个核 → 1个输出通道</text>
+                <text x="430" y="348" font-size="10" fill="#5a3a7a" font-family="Segoe UI, sans-serif">MobileNet / EfficientNet</text>
+
+                <!-- 第3列：一对多 -->
+                <g filter="url(#shadow2)">
+                    <g transform="translate(820, 95)">
+                        <rect x="0" y="0" width="50" height="50" rx="4" fill="url(#gradKernel2)" stroke="#c0405a" stroke-width="2.5" />
+                        <text x="25" y="22" font-size="10" fill="#4a1a2a" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">核1</text>
+                        <text x="25" y="38" font-size="8" fill="#4a1a2a" text-anchor="middle" font-family="Segoe UI, sans-serif">3×3</text>
+                    </g>
+                </g>
+                <path d="M870,120 L950,80" stroke="#2a7a3a" stroke-width="3" fill="none" marker-end="url(#arrow2b)" />
+                <path d="M870,120 L950,120" stroke="#2a7a3a" stroke-width="3" fill="none" marker-end="url(#arrow2b)" />
+                <path d="M870,120 L950,160" stroke="#2a7a3a" stroke-width="3" fill="none" marker-end="url(#arrow2b)" />
+                <g filter="url(#shadowLight2)">
+                    <g transform="translate(960, 65)">
+                        <rect x="0" y="0" width="60" height="60" rx="6" fill="url(#gradFmap2)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="30" y="28" font-size="9" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">像素1</text>
+                        <text x="30" y="44" font-size="8" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">上采样</text>
+                    </g>
+                    <g transform="translate(960, 135)">
+                        <rect x="0" y="0" width="60" height="60" rx="6" fill="url(#gradFmap2)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="30" y="28" font-size="9" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">像素2</text>
+                        <text x="30" y="44" font-size="8" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">上采样</text>
+                    </g>
+                    <g transform="translate(960, 205)">
+                        <rect x="0" y="0" width="60" height="60" rx="6" fill="url(#gradFmap2)" stroke="#2a7a3a" stroke-width="2.5" />
+                        <text x="30" y="28" font-size="9" fill="#1a3a22" font-weight="700" text-anchor="middle" font-family="Segoe UI, sans-serif">像素3</text>
+                        <text x="30" y="44" font-size="8" fill="#2a5a32" text-anchor="middle" font-family="Segoe UI, sans-serif">上采样</text>
+                    </g>
+                </g>
+                <text x="820" y="330" font-size="11" fill="#2a6a3a" font-family="Segoe UI, sans-serif">⬆ 1个核 → 多个输出像素</text>
+                <text x="820" y="348" font-size="10" fill="#3a7a4a" font-family="Segoe UI, sans-serif">U-Net / GAN 生成器</text>
+
+                <!-- 底部总结 -->
+                <g transform="translate(40, 400)">
+                    <rect x="0" y="0" width="1070" height="140" rx="16" fill="#f5f9ff" stroke="#d5dce6" stroke-width="1.5" filter="url(#shadowLight2)" />
+                    <text x="24" y="28" font-size="14" font-weight="700" fill="#1a4b8c" font-family="Segoe UI, sans-serif">📌 三种映射关系 · 实际场景</text>
+                    <text x="24" y="54" font-size="12" fill="#1f3a5f" font-family="Segoe UI, sans-serif">
+                        <tspan font-weight="700" fill="#c0405a">① 一对一</tspan>（标准卷积）：1个核 → 1个特征图。ResNet、VGG、YOLO 等绝大多数CNN。
+                    </text>
+                    <text x="24" y="76" font-size="12" fill="#1f3a5f" font-family="Segoe UI, sans-serif">
+                        <tspan font-weight="700" fill="#7a4a9a">② 多对一</tspan>（分组/逐点卷积）：多个核 → 1个融合通道。MobileNet、EfficientNet（移动端/嵌入式）。
+                    </text>
+                    <text x="24" y="98" font-size="12" fill="#1f3a5f" font-family="Segoe UI, sans-serif">
+                        <tspan font-weight="700" fill="#2a7a3a">③ 一对多</tspan>（转置卷积）：1个核 → 多个输出像素。U-Net（医学图像分割）、GAN生成器。
+                    </text>
+                    <text x="600" y="54" font-size="11" fill="#5a7a9a" font-family="Segoe UI, sans-serif">✅ 一对一：算力充足，精度优先</text>
+                    <text x="600" y="76" font-size="11" fill="#5a7a9a" font-family="Segoe UI, sans-serif">✅ 多对一：省算力，移动端部署</text>
+                    <text x="600" y="98" font-size="11" fill="#5a7a9a" font-family="Segoe UI, sans-serif">✅ 一对多：上采样，恢复分辨率</text>
+                </g>
+            </svg>
+        </div>
+
+        <!-- 图例 -->
+        <div class="legend-bar">
+            <span class="legend-item"><span class="color-box kernel"></span> 卷积核</span>
+            <span class="legend-item"><span class="color-box fmap"></span> 特征图</span>
+            <span class="legend-item"><span class="color-box group"></span> 融合通道</span>
+            <span class="legend-item"><span class="color-box multi"></span> 1×1 核</span>
+        </div>
+
+        <!-- 第二部分总结 -->
+        <div class="summary-box">
+            <strong>🧩 核心结论（第二部分）</strong><br>
+            • <span class="highlight-pink">一对一</span>：标准卷积，<strong>1个核 = 1个输出通道</strong>（ResNet）。<br>
+            • <span class="highlight-purple">多对一</span>：分组/逐点卷积，<strong>多个核 → 1个融合通道</strong>（MobileNet）。<br>
+            • <span class="highlight">一对多</span>：转置卷积，<strong>1个核 → 多个输出像素</strong>（U-Net）。<br>
+            • 三种映射分别对应 <strong>精度优先</strong>、<strong>效率优先</strong>、<strong>上采样任务</strong>。
+        </div>
+
+        <!-- ========================================================== -->
+        <!-- 全文总结                                               -->
+        <!-- ========================================================== -->
+        <div class="divider"></div>
+
+        <div class="section-title">
+            📌 全文总结
+            <span>从结构到映射，一张网全串起来</span>
+        </div>
+
+        <div class="summary-box" style="border-left-color: #c0405a;">
+            <strong>🧠 CNN卷积层 · 完整知识框架</strong><br>
+            • <strong>结构上</strong>：输入（多通道）→ 卷积核（深度=输入通道数）→ 点积 → 特征图 → 输出通道。<br>
+            • <strong>数量上</strong>：<span class="highlight-pink">N 个核 → N 张特征图 → N 个输出通道</span>（标准卷积）。<br>
+            • <strong>映射上</strong>：<span class="highlight-pink">一对一</span>（标准）、<span class="highlight-purple">多对一</span>（分组/逐点）、<span class="highlight">一对多</span>（转置）。<br>
+            • <strong>场景上</strong>：精度选 ResNet，效率选 MobileNet，上采样选 U-Net。
+        </div>
+
+    </div>
+</body>
+</html>
