@@ -4,7 +4,7 @@
 
 ## 计算树结构（树根 = loss，向下生长）
 
-![梯度计算图](pytorch/pytorch-autograd.png)
+![梯度计算图](images/pytorch-autograd.png)
 
 
 
@@ -93,7 +93,7 @@
 
 ## 📷 官方计算图参考
 
-![官方参考](pytorch/pytorch-autograd-official.jpg)
+![官方参考](images/pytorch-autograd-official.jpg)
 
 📌 图片引自 [PyTorch Autograd Engine 官方文档](https://pytorch.org/blog/overview-of-pytorch-autograd-engine)
 

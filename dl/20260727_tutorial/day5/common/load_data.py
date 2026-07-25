@@ -41,6 +41,7 @@ def get_house_data():
     x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # 3. 特征工程：数值型和类别型分别处理
+    ## object 包括日期和文本
     num_features = X.select_dtypes(exclude='object').columns
     cat_features = X.select_dtypes(include='object').columns
 

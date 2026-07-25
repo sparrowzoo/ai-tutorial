@@ -28,9 +28,7 @@ model = nn.Sequential(
     nn.Linear(feature_num, 128),
     nn.BatchNorm1d(128),
     nn.ReLU(),
-
     nn.Dropout(0.2),
-
     nn.Linear(128, 1),
 ).to(device)
 
@@ -41,7 +39,7 @@ def init_params(layer):
 model.apply(init_params)
 
 # 6. 定义损失函数和优化器
-optimizer = optim.Adam(model.parameters(), lr=lr)
+optimizer = optim.SGD(model.parameters(), lr=lr)
 
 def loss_fn(y_pred, y_true):
     y_pred = torch.clamp(y_pred, 1, float('inf'))
