@@ -10,6 +10,7 @@ from sklearn.impute import SimpleImputer
 def get_digit_data():
     # 1. 加载数据
     df = pd.read_csv('../data/train.csv')
+    print(df.shape)
 
     # 2. 划分数据集
     X = df.drop('label', axis=1)

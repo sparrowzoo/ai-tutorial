@@ -6,7 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 # 加载手写数字数据
 def get_digit_data():
     # 1. 加载数据
-    df = pd.read_csv('../data/train.csv')
+    df = pd.read_csv('../data/house_prices.csv')
 
     # 2. 划分数据集
     X = df.drop('label', axis=1)

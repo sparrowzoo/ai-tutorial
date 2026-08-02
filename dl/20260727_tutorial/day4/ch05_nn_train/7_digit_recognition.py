@@ -37,6 +37,7 @@ val_dataset = TensorDataset(x_val, y_val)
 # 训练集打散：为了让模型看到不同顺序的样本，防止模型“死记硬背”样本顺序，学习到顺序中的噪声。
 # 验证集不打散：为了让评价指标不受顺序干扰，真实反映模型性能，便于追踪训练进展。
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 # 5. 定义损失函数和优化器
@@ -89,23 +90,24 @@ for epoch in range(epochs):
     val_total_loss = 0
     val_acc_cnt = 0
 
-    with torch.no_grad():
-        for input, target in val_loader:
-            input, target = input.to(device), target.to(device)
-            # 7.2.1 前向传播，计算模型预测输出值
-            output = model(input)
-            # 7.2.2 计算损失
-            loss = loss_fn(output, target)
+    # with torch.no_grad():
+    #     for input, target in val_loader:
+    #         input, target = input.to(device), target.to(device)
+    #         # 7.2.1 前向传播，计算模型预测输出值
+    #         output = model(input)
+    #         # 7.2.2 计算损失
+    #         loss = loss_fn(output, target)
+    #
+    #         # 累加损失
+    #         val_total_loss += loss.item()
+    #         # 累加预测准确的个数
+    #         pred_label = output.argmax(dim=-1)
+    #         val_acc_cnt += pred_label.eq(target).sum().item()
+    #
+    #     # 计算平均训练损失和准确率
+    #     val_loss = val_total_loss / len(val_loader)
+    #     val_acc = val_acc_cnt / len(val_dataset)
 
-            # 累加损失
-            val_total_loss += loss.item()
-            # 累加预测准确的个数
-            pred_label = output.argmax(dim=-1)
-            val_acc_cnt += pred_label.eq(target).sum().item()
-
-        # 计算平均训练损失和准确率
-        val_loss = val_total_loss / len(val_loader)
-        val_acc = val_acc_cnt / len(val_dataset)
 
     # 本轮训练和验证结束，打印相关指标
-    print(f"Epoch: {epoch+1}   train loss: {train_loss:.6f}, train acc: {train_acc:.6f}, val loss: {val_loss:.6f}, val acc: {val_acc:.6f}")
+    print(f"Epoch: {epoch+1}   train loss: {train_loss:.6f}, train acc: {train_acc:.6f}")
