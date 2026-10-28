@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深度学习历史图谱 · 含辛顿家族传承</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, system-ui, sans-serif; user-select: none; }
+        body { background: #f0f3f9; display: flex; justify-content: center; padding: 24px 16px; min-height: 100vh; }
+        .container { max-width: 1400px; width: 100%; background: white; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,20,40,0.12); padding: 24px 20px 40px; }
+        h1 { font-size: 2rem; font-weight: 650; color: #0b1c33; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+        .subtitle { color: #3b4a5e; border-left: 4px solid #3b82f6; padding-left: 20px; margin-bottom: 18px; background: #f0f6ff; border-radius: 0 16px 16px 0; padding: 10px 22px; font-weight: 400; line-height: 1.6; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-bottom: 18px; padding: 8px 4px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 14px 28px; background: #f8fafc; padding: 8px 20px; border-radius: 60px; border: 1px solid #e2e8f0; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 500; color: #1e293b; }
+        .legend-line { width: 28px; height: 3px; border-radius: 6px; }
+        .legend-line.origin { background: #6c5ce7; }
+        .legend-line.early { background: #00b894; }
+        .legend-line.breakthrough { background: #fdcb6e; }
+        .legend-line.modern { background: #e17055; }
+        .legend-line.heritage { background: #8b5cf6; }
+
+        .graph-container { position: relative; width: 100%; height: 1400px; background: #fafcff; border-radius: 28px; border: 1px solid #e9edf4; overflow: hidden; touch-action: none; }
+        #graphSvg { display: block; width: 100%; height: 100%; background: #fafcff; cursor: grab; }
+        #graphSvg:active { cursor: grabbing; }
+
+        .node-group { cursor: grab; }
+        .node-group:active { cursor: grabbing; }
+        .node-bg { fill: white; stroke: #dce3ef; stroke-width: 1.8; rx: 20; ry: 20; transition: stroke 0.2s, filter 0.2s; }
+        .node-group:hover .node-bg { stroke: #3b82f6; filter: drop-shadow(0 4px 12px rgba(0,20,40,0.12)); }
+        .node-bg-heritage { fill: #f3f0ff; stroke: #8b5cf6; stroke-width: 2; rx: 20; ry: 20; transition: stroke 0.2s, filter 0.2s; }
+        .node-group:hover .node-bg-heritage { stroke: #6d28d9; filter: drop-shadow(0 4px 12px rgba(0,20,40,0.12)); }
+
+        .node-year { font-size: 12px; font-weight: 800; fill: #0b1c33; text-anchor: middle; pointer-events: none; }
+        .node-title { font-size: 9px; font-weight: 700; fill: #1e293b; text-anchor: middle; pointer-events: none; }
+        .node-name-cn { font-size: 8.5px; font-weight: 600; fill: #2d3748; text-anchor: middle; pointer-events: none; }
+        .node-desc { font-size: 7px; fill: #5e6f87; text-anchor: middle; pointer-events: none; }
+        .node-problem { font-size: 6.5px; fill: #e17055; text-anchor: middle; pointer-events: none; font-weight: 600; }
+
+        .edge { stroke-width: 2; fill: none; stroke-linecap: round; opacity: 0.6; }
+        .edge-origin { stroke: #6c5ce7; stroke-dasharray: 4 4; }
+        .edge-early { stroke: #00b894; stroke-dasharray: 5 5; }
+        .edge-breakthrough { stroke: #fdcb6e; stroke-dasharray: 6 4; }
+        .edge-modern { stroke: #e17055; stroke-dasharray: 4 6; }
+        .edge-heritage { stroke: #8b5cf6; stroke-dasharray: 3 6; stroke-width: 2.5; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 20, 40, 0.4);
+            backdrop-filter: blur(6px);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 20px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            max-width: 780px;
+            width: 100%;
+            max-height: 90vh;
+            border-radius: 40px;
+            padding: 32px 36px 36px 36px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.3);
+            animation: modalFade 0.25s ease;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        @keyframes modalFade {
+            from { opacity: 0; transform: scale(0.95) translateY(16px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-close {
+            position: sticky;
+            top: 0;
+            float: right;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 60px;
+            width: 42px;
+            height: 42px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #1e293b;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .modal-close:hover { background: #e2e8f0; transform: rotate(90deg); }
+
+        .modal-header {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-right: 50px;
+        }
+
+        .modal-label {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            color: white;
+        }
+
+        .modal-name { font-size: 1.4rem; font-weight: 700; color: #0b1c33; line-height: 1.3; }
+        .modal-name .cn { font-weight: 400; color: #475569; margin-left: 8px; }
+        .modal-year { font-size: 1rem; font-weight: 400; color: #6b7b93; margin-left: 10px; }
+        .modal-meta { color: #475569; font-size: 0.95rem; margin-top: 2px; }
+        .modal-bio { border-top: 1px solid #e9edf4; padding-top: 20px; line-height: 1.8; color: #1e293b; font-size: 0.95rem; }
+        .modal-bio i { color: #2563eb; width: 24px; }
+        .modal-bio .highlight { background: #fef9c3; padding: 0 4px; font-weight: 600; }
+        .modal-bio .org { display: inline-block; background: #eef3fa; padding: 0 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 500; }
+        .modal-bio .paper { display: block; background: #f1f5f9; padding: 6px 14px; border-radius: 10px; margin: 6px 0; font-size: 0.85rem; border-left: 3px solid #2563eb; }
+        .modal-bio .paper .en { font-weight: 500; color: #0b1c33; }
+        .modal-bio .paper .cn { color: #475569; font-size: 0.8rem; }
+        .modal-bio .problem { background: #fef2f2; padding: 8px 14px; border-radius: 10px; margin: 8px 0; border-left: 3px solid #e17055; font-size: 0.9rem; }
+        .modal-bio .problem strong { color: #e17055; }
+        .modal-bio p { margin-bottom: 8px; }
+
+        .modal-bio::-webkit-scrollbar { width: 6px; }
+        .modal-bio::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .modal-bio::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        @media (max-width:700px) {
+            .container { padding:12px; }
+            h1 { font-size:1.4rem; }
+            .graph-container { height:1100px; }
+            .legend { gap:8px 16px; padding:6px 14px; }
+            .modal { padding: 24px 20px; max-width: 100%; }
+            .modal-header { flex-wrap: wrap; gap: 12px; }
+            .modal-name { font-size: 1.2rem; }
+            .modal-label { width: 56px; height: 56px; font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1><span>📄 深度学习历史图谱</span><span style="font-size:1rem;font-weight:400;color:#3b4a5e;margin-left:6px;">含辛顿家族传承 · 中英对照</span></h1>
+    <div class="subtitle"><i class="fas fa-arrows-alt"></i> 拖拽节点 → 连线自动跟随 · 紫色虚线 = 家族传承 · 点击查看详情</div>
+    <div class="toolbar">
+        <div class="legend">
+            <span class="legend-item"><span class="legend-line origin"></span> 起源 · 1943-1960</span>
+            <span class="legend-item"><span class="legend-line early"></span> 早期探索 · 1969-1974</span>
+            <span class="legend-item"><span class="legend-line breakthrough"></span> 突破 · 1986-2006</span>
+            <span class="legend-item"><span class="legend-line modern"></span> 现代 · 2012-2016</span>
+            <span class="legend-item"><span class="legend-line heritage"></span> 家族传承</span>
+        </div>
+        <div style="margin-left:auto;font-size:.8rem;color:#6b7b93;"><i class="fas fa-sync-alt"></i> 双击空白重置</div>
+    </div>
+
+    <div class="graph-container" id="graphContainer">
+        <svg id="graphSvg" viewBox="0 0 1450 1400" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <marker id="arrowOrigin" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6c5ce7"/></marker>
+                <marker id="arrowEarly" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#00b894"/></marker>
+                <marker id="arrowBreakthrough" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#fdcb6e"/></marker>
+                <marker id="arrowModern" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#e17055"/></marker>
+                <marker id="arrowHeritage" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#8b5cf6"/></marker>
+            </defs>
+            <g id="edgesGroup"></g>
+            <g id="nodesGroup">
+
+                <!-- ===== 家族传承节点（新增） ===== -->
+                <!-- 乔治·布尔 1815-1864 -->
+                <g class="node-group" data-person="boole" data-id="boole" transform="translate(80, 40)">
+                    <rect class="node-bg-heritage" x="-110" y="-60" width="220" height="100" />
+                    <text class="node-year" x="0" y="-32" style="fill:#8b5cf6;">1815-1864</text>
+                    <text class="node-title" x="0" y="-14">George Boole</text>
+                    <text class="node-name-cn" x="0" y="0">乔治·布尔</text>
+                    <text class="node-desc" x="0" y="16">布尔代数 · 计算机数学基础</text>
+                    <text class="node-desc" x="0" y="30" font-size="6.5" fill="#8b5cf6">辛顿的高曾祖父</text>
+                </g>
+
+                <!-- 乔治·埃佛勒斯 1790-1866 -->
+                <g class="node-group" data-person="everest" data-id="everest" transform="translate(340, 40)">
+                    <rect class="node-bg-heritage" x="-110" y="-60" width="220" height="100" />
+                    <text class="node-year" x="0" y="-32" style="fill:#8b5cf6;">1790-1866</text>
+                    <text class="node-title" x="0" y="-14">George Everest</text>
+                    <text class="node-name-cn" x="0" y="0">乔治·埃佛勒斯</text>
+                    <text class="node-desc" x="0" y="16">测绘学家 · 珠峰命名来源</text>
+                    <text class="node-desc" x="0" y="30" font-size="6.5" fill="#8b5cf6">辛顿高祖母的叔叔</text>
+                </g>
+
+                <!-- 琼·辛顿（寒春）1921-2010 -->
+                <g class="node-group" data-person="joan" data-id="joan" transform="translate(600, 40)">
+                    <rect class="node-bg-heritage" x="-110" y="-60" width="220" height="100" />
+                    <text class="node-year" x="0" y="-32" style="fill:#8b5cf6;">1921-2010</text>
+                    <text class="node-title" x="0" y="-14">Joan Hinton（寒春）</text>
+                    <text class="node-name-cn" x="0" y="0">琼·辛顿</text>
+                    <text class="node-desc" x="0" y="16">核物理学家 · 曼哈顿计划</text>
+                    <text class="node-desc" x="0" y="30" font-size="6.5" fill="#8b5cf6">辛顿的姑姑</text>
+                </g>
+
+                <!-- 霍华德·辛顿 1912-1977 -->
+                <g class="node-group" data-person="howard" data-id="howard" transform="translate(860, 40)">
+                    <rect class="node-bg-heritage" x="-110" y="-60" width="220" height="100" />
+                    <text class="node-year" x="0" y="-32" style="fill:#8b5cf6;">1912-1977</text>
+                    <text class="node-title" x="0" y="-14">Howard Hinton</text>
+                    <text class="node-name-cn" x="0" y="0">霍华德·辛顿</text>
+                    <text class="node-desc" x="0" y="16">昆虫学家 · 英国皇家学会会员</text>
+                    <text class="node-desc" x="0" y="30" font-size="6.5" fill="#8b5cf6">辛顿的父亲</text>
+                </g>
+
+                <!-- ===== 深度学习历史节点（原有，下移） ===== -->
+                <!-- 1943 · McCulloch & Pitts -->
+                <g class="node-group" data-person="mcculloch" data-id="mcculloch" transform="translate(80, 250)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#6c5ce7;">1943</text>
+                    <text class="node-title" x="0" y="-12">McCulloch &amp; Pitts</text>
+                    <text class="node-name-cn" x="0" y="2">麦卡洛克 &amp; 皮茨</text>
+                    <text class="node-desc" x="0" y="16">神经网络计算模型</text>
+                    <text class="node-problem" x="0" y="32">❓ 如何用数学模拟神经元？</text>
+                </g>
+
+                <!-- 1957 · Rosenblat -->
+                <g class="node-group" data-person="rosenblat" data-id="rosenblat" transform="translate(320, 250)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#6c5ce7;">1957</text>
+                    <text class="node-title" x="0" y="-12">Frank Rosenblatt</text>
+                    <text class="node-name-cn" x="0" y="2">弗兰克·罗森布拉特</text>
+                    <text class="node-desc" x="0" y="16">感知机 · Perceptron</text>
+                    <text class="node-problem" x="0" y="32">❓ 如何让机器自动学习？</text>
+                </g>
+
+                <!-- 1960 · Widrow & Hoff -->
+                <g class="node-group" data-person="widrow" data-id="widrow" transform="translate(560, 250)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#6c5ce7;">1960</text>
+                    <text class="node-title" x="0" y="-12">Widrow &amp; Hoff</text>
+                    <text class="node-name-cn" x="0" y="2">威德罗 &amp; 霍夫</text>
+                    <text class="node-desc" x="0" y="16">Adaline/Madaline</text>
+                    <text class="node-problem" x="0" y="32">❓ 如何叠加多层线性单元？</text>
+                </g>
+
+                <!-- 1969 · Minsky & Papert -->
+                <g class="node-group" data-person="minsky" data-id="minsky" transform="translate(800, 250)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#00b894;">1969</text>
+                    <text class="node-title" x="0" y="-12">Minsky &amp; Papert</text>
+                    <text class="node-name-cn" x="0" y="2">明斯基 &amp; 帕珀特</text>
+                    <text class="node-desc" x="0" y="16">"Perceptrons"</text>
+                    <text class="node-problem" x="0" y="32">❓ 单层网络为何失效？</text>
+                </g>
+
+                <!-- 1974 · Paul Werbos -->
+                <g class="node-group" data-person="werbos" data-id="werbos" transform="translate(1040, 250)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#00b894;">1974</text>
+                    <text class="node-title" x="0" y="-12">Paul Werbos</text>
+                    <text class="node-name-cn" x="0" y="2">保罗·韦伯斯</text>
+                    <text class="node-desc" x="0" y="16">反向传播算法</text>
+                    <text class="node-problem" x="0" y="32">❓ 如何训练多层网络？</text>
+                </g>
+
+                <!-- 1986 · Rumelhart, Hinton, Williams -->
+                <g class="node-group" data-person="rumelhart" data-id="rumelhart" transform="translate(160, 440)">
+                    <rect class="node-bg" x="-110" y="-55" width="220" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#fdcb6e;">1986</text>
+                    <text class="node-title" x="0" y="-14">Rumelhart · Hinton · Williams</text>
+                    <text class="node-name-cn" x="0" y="0">鲁梅尔哈特 · 辛顿 · 威廉姆斯</text>
+                    <text class="node-desc" x="0" y="14">反向传播 · 推广</text>
+                    <text class="node-problem" x="0" y="30">❓ 如何让学术界接受BP？</text>
+                </g>
+
+                <!-- 1989 · Yann LeCun -->
+                <g class="node-group" data-person="lecun1989" data-id="lecun1989" transform="translate(430, 440)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#fdcb6e;">1989</text>
+                    <text class="node-title" x="0" y="-12">Yann LeCun</text>
+                    <text class="node-name-cn" x="0" y="2">杨立昆</text>
+                    <text class="node-desc" x="0" y="16">LeNet · 卷积神经网络</text>
+                    <text class="node-problem" x="0" y="32">❓ 如何高效处理图像？</text>
+                </g>
+
+                <!-- 2006 · Hinton, Salakhutdinov, Osindero -->
+                <g class="node-group" data-person="hinton2006" data-id="hinton2006" transform="translate(700, 440)">
+                    <rect class="node-bg" x="-110" y="-55" width="220" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#fdcb6e;">2006</text>
+                    <text class="node-title" x="0" y="-14">Hinton · Salakhutdinov · Osindero</text>
+                    <text class="node-name-cn" x="0" y="0">辛顿 · 萨拉赫丁诺夫 · 奥辛德罗</text>
+                    <text class="node-desc" x="0" y="14">深度信念网络</text>
+                    <text class="node-problem" x="0" y="30">❓ 如何让"深度"再次可行？</text>
+                </g>
+
+                <!-- 2012 · AlexNet -->
+                <g class="node-group" data-person="alexnet" data-id="alexnet" transform="translate(970, 440)">
+                    <rect class="node-bg" x="-110" y="-55" width="220" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#e17055;">2012</text>
+                    <text class="node-title" x="0" y="-14">Krizhevsky · Sutskever · Hinton</text>
+                    <text class="node-name-cn" x="0" y="0">克里热夫斯基 · 苏茨克维 · 辛顿</text>
+                    <text class="node-desc" x="0" y="14">AlexNet · ImageNet 冠军</text>
+                    <text class="node-problem" x="0" y="30">❓ 如何在大数据上训练深度网络？</text>
+                </g>
+
+                <!-- 2013-2016 · ImageNet Era -->
+                <g class="node-group" data-person="imagenet" data-id="imagenet" transform="translate(1240, 440)">
+                    <rect class="node-bg" x="-100" y="-55" width="200" height="90" />
+                    <text class="node-year" x="0" y="-28" style="fill:#e17055;">2013-2016</text>
+                    <text class="node-title" x="0" y="-12">ImageNet 时代</text>
+                    <text class="node-name-cn" x="0" y="2">ImageNet 时代</text>
+                    <text class="node-desc" x="0" y="16">GoogLeNet · VGG · ResNet · SENet</text>
+                    <text class="node-problem" x="0" y="32">❓ 如何让模型更深更强？</text>
+                </g>
+
+                <!-- ===== 底部完整结论卡片 ===== -->
+                <g transform="translate(80, 740)">
+                    <rect x="0" y="0" width="1290" height="440" rx="18" fill="#fef9e7" stroke="#e17055" stroke-width="2" />
+                    <text x="30" y="40" font-size="20" font-weight="700" fill="#e17055">💎 核心结论：为什么辛顿贡献这么大？</text>
+
+                    <text x="30" y="75" font-size="14" fill="#1e293b" font-weight="600">❓ 反向传播算法和链式求导法则都不是辛顿发明的——但他的贡献是另一维度的。</text>
+
+                    <text x="30" y="108" font-size="13.5" fill="#2d3748">📌 他不是"发明者"，而是"推广者"和"坚守者"</text>
+                    <text x="50" y="130" font-size="12.5" fill="#4a5568">• 1986年《自然》论文让反向传播从"冷门博士论文"变成"整个领域的标准工具"</text>
+                    <text x="50" y="152" font-size="12.5" fill="#4a5568">• 在神经网络"冬天"（1969-1986）期间，是极少数从未放弃神经网络的学者之一</text>
+
+                    <text x="30" y="185" font-size="13.5" fill="#2d3748">📌 他完成了"从0到1"到"从1到N"的关键一跃</text>
+                    <text x="50" y="207" font-size="12.5" fill="#4a5568">• Werbos 发明了"轮子"（反向传播），但把它埋在了一堆论文里</text>
+                    <text x="50" y="229" font-size="12.5" fill="#4a5568">• 辛顿不但把"轮子"搬到了大街上，还造出了"汽车"（深度学习架构），培养了"赛车手"（他的学生），并最终赢得了"世界大赛"（ImageNet）</text>
+
+                    <rect x="30" y="255" width="1230" height="50" rx="12" fill="#e17055" opacity="0.12" />
+                    <text x="50" y="273" font-size="14" fill="#e17055" font-weight="700">🎯 一句话点明本质：</text>
+                    <text x="50" y="296" font-size="15" fill="#1e293b" font-weight="600">Werbos 把"火药"写在了一本无人问津的"炼丹笔记"里；而辛顿把"火药"做成了"炸药包"，并在全世界面前引爆了它。</text>
+
+                    <rect x="30" y="320" width="1230" height="45" rx="12" fill="#3b82f6" opacity="0.10" />
+                    <text x="50" y="338" font-size="13.5" fill="#1e293b" font-weight="500">🔗 与李飞飞的类比：</text>
+                    <text x="50" y="358" font-size="14" fill="#1e293b" font-weight="600">核心原因是和李飞飞一样——辛顿跨过了学术和工业落地的鸿沟。</text>
+
+                    <text x="30" y="415" font-size="12" fill="#475569" font-weight="500">🏆 这就是他获得 2018 年图灵奖和 2024 年诺贝尔物理学奖的根本原因。</text>
+                </g>
+
+            </g>
+        </svg>
+    </div>
+    <div style="text-align:center;font-size:.85rem;color:#475569;margin-top:14px;">
+        <i class="fas fa-mouse-pointer"></i> 拖拽节点 → 连线自动跟随 · 点击查看详情 · 双击空白重置
+    </div>
+
+    <!-- ===== 模态框 ===== -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+            <div class="modal-header">
+                <div class="modal-label" id="modalLabel" style="background:#8b5cf6;">🧬</div>
+                <div>
+                    <div class="modal-name">
+                        <span id="modalNameEn">English Name</span>
+                        <span class="cn" id="modalNameCn">中文名</span>
+                        <span class="modal-year" id="modalYear">1815</span>
+                    </div>
+                    <div class="modal-meta" id="modalMeta">核心贡献</div>
+                </div>
+            </div>
+            <div class="modal-bio" id="modalBio"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== 事件数据 ==========
+    const people = {
+        // 新增家族成员
+        boole: {
+            nameEn: 'George Boole',
+            nameCn: '乔治·布尔',
+            year: '1815-1864',
+            color: '#8b5cf6',
+            meta: '布尔代数 · 计算机数学基础',
+            bio: `<p><i class="fas fa-square-root-alt"></i> <strong>核心贡献</strong>：创立布尔代数，将逻辑推理转化为可计算的数学语言。</p>
+                <div class="paper"><span class="en">📄 The Mathematical Analysis of Logic (1847) · The Laws of Thought (1854)</span><br><span class="cn">📄 逻辑的数学分析 · 思维规律</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何用数学符号系统描述逻辑推理？</div>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：布尔代数为数字计算机的二进制逻辑和开关电路设计奠定了数学基础。</p>
+                <p><span class="org">家族地位</span> 杰弗里·辛顿的高曾祖父（great-great-grandfather）。</p>`
+        },
+        everest: {
+            nameEn: 'George Everest',
+            nameCn: '乔治·埃佛勒斯',
+            year: '1790-1866',
+            color: '#8b5cf6',
+            meta: '测绘学家 · 珠峰命名来源',
+            bio: `<p><i class="fas fa-mountain"></i> <strong>核心贡献</strong>：19世纪杰出测绘学家，曾任英属印度测绘局局长。</p>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键成就</strong>：领导完成了对印度次大陆的大规模三角测量，为世界地理测绘作出重大贡献。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：珠穆朗玛峰（Mount Everest）以其姓氏命名。</p>
+                <p><span class="org">家族地位</span> 辛顿高祖母的叔叔，辛顿的中间名"Everest"即来源于此。</p>`
+        },
+        joan: {
+            nameEn: 'Joan Hinton（寒春）',
+            nameCn: '琼·辛顿',
+            year: '1921-2010',
+            color: '#8b5cf6',
+            meta: '核物理学家 · 曼哈顿计划',
+            bio: `<p><i class="fas fa-atom"></i> <strong>核心贡献</strong>：参与曼哈顿计划的少数女性核物理学家之一。</p>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键转折</strong>：目睹原子弹的毁灭性力量后，放弃核物理研究。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：1948年移居中国，投身奶牛养殖机械化事业，是新中国第一位获得中国绿卡的外国人，中文名"寒春"。</p>
+                <p><span class="org">家族地位</span> 辛顿的姑姑，其"科学应为和平服务"的信念深刻影响了辛顿的技术伦理观。</p>`
+        },
+        howard: {
+            nameEn: 'Howard Hinton',
+            nameCn: '霍华德·辛顿',
+            year: '1912-1977',
+            color: '#8b5cf6',
+            meta: '昆虫学家 · 英国皇家学会会员',
+            bio: `<p><i class="fas fa-bug"></i> <strong>核心贡献</strong>：著名昆虫学家，专注于墨西哥甲虫研究。</p>
+                <p><i class="fas fa-award"></i> <strong>荣誉</strong>：当选为英国皇家学会会员。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：对辛顿要求极为严格，常对他说："努力工作，也许当你的年龄是我两倍的时候，能有我一半优秀。"</p>
+                <p><span class="org">家族地位</span> 辛顿的父亲，其严厉的教育方式塑造了辛顿的学术品格。</p>`
+        },
+        // 原有深度学习节点
+        mcculloch: {
+            nameEn: 'Warren McCulloch & Walter Pitts',
+            nameCn: '沃伦·麦卡洛克 & 沃尔特·皮茨',
+            year: '1943',
+            color: '#6c5ce7',
+            meta: '神经网络计算模型 · 起源',
+            bio: `<p><i class="fas fa-brain"></i> <strong>核心贡献</strong>：基于数学和阈值逻辑算法，创建了第一个神经网络计算模型。</p>
+                <div class="paper"><span class="en">📄 A Logical Calculus of the Ideas Immanent in Nervous Activity</span><br><span class="cn">📄 神经活动中内在思想的逻辑演算</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何用数学形式化地模拟神经元"全或无"的激发特性？</div>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：首次将神经元的"全或无"特性形式化为数学逻辑，为人工神经网络奠定了理论基础。</p>
+                <p><span class="org">地位</span> 神经科学和控制论的开创性工作，是深度学习的"第0步"。</p>`
+        },
+        rosenblat: {
+            nameEn: 'Frank Rosenblatt',
+            nameCn: '弗兰克·罗森布拉特',
+            year: '1957',
+            color: '#6c5ce7',
+            meta: '感知机 · Perceptron',
+            bio: `<p><i class="fas fa-microchip"></i> <strong>核心贡献</strong>：发明感知机（Perceptron），奠定了深度学习的基本结构。</p>
+                <p><i class="fas fa-calculator"></i> <strong>关键算子</strong>：矩阵乘加运算，成为后续人工智能芯片和系统支持的基本算子类型。</p>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何让机器通过调整权重自动从数据中学习？</div>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：第一次实现了可学习的神经网络硬件，证明了机器可以通过调整权重来学习。</p>
+                <p><span class="org">地位</span> 深度学习的"奠基人"之一。</p>`
+        },
+        widrow: {
+            nameEn: 'Bernard Widrow & Marcian Hoff',
+            nameCn: '伯纳德·威德罗 & 马西恩·霍夫',
+            year: '1960',
+            color: '#6c5ce7',
+            meta: 'Adaline/Madaline · 多层感知器',
+            bio: `<p><i class="fas fa-layer-group"></i> <strong>核心贡献</strong>：发明 Adaline/Madaline，首次尝试把线性层叠加为多层感知器网络。</p>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何将多个线性单元叠加，形成更强大的"深度"网络？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：为以后产生大模型和模型并行等系统问题做好了铺垫。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：首次将多个线性单元堆叠，展现了"深度"的潜力——虽然当时算力无法支撑。</p>
+                <p><span class="org">地位</span> 多层神经网络的"概念先驱"。</p>`
+        },
+        minsky: {
+            nameEn: 'Marvin Minsky & Seymour Papert',
+            nameCn: '马文·明斯基 & 西摩·帕珀特',
+            year: '1969',
+            color: '#00b894',
+            meta: '"Perceptrons" · 异或问题',
+            bio: `<p><i class="fas fa-book"></i> <strong>核心贡献</strong>：共同编写《Perceptrons: an introduction to computational geometry》</p>
+                <div class="paper"><span class="en">📄 Perceptrons: an introduction to computational geometry</span><br><span class="cn">📄 感知机：计算几何导论</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>单层感知机为什么无法解决异或（XOR）这类线性不可分问题？</div>
+                <p><i class="fas fa-exclamation-triangle"></i> <strong>关键论证</strong>：证明单层感知器无法解决线性不可分问题（如异或问题）。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：揭示了单层网络的根本局限，为以后提升硬件算力、通过更多层和非线性计算增强能力埋下伏笔。</p>
+                <p><span class="org">地位</span> 虽然限制了早期发展，但指出了正确的方向——"更深"是出路。</p>`
+        },
+        werbos: {
+            nameEn: 'Paul Werbos',
+            nameCn: '保罗·韦伯斯',
+            year: '1974',
+            color: '#00b894',
+            meta: '反向传播算法 · 博士论文',
+            bio: `<p><i class="fas fa-graduation-cap"></i> <strong>核心贡献</strong>：在博士论文中提出误差反向传播算法。</p>
+                <div class="paper"><span class="en">📄 Beyond regression: new tools for prediction and analysis in the behavioral sciences</span><br><span class="cn">📄 超越回归：行为科学中预测与分析的新工具</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何通过链式求导高效计算多层网络中每个权重的梯度？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：使得训练多层神经网络成为可能，有效解决了异或回路问题。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：奠定了之后深度学习的训练方式——链式求导 + 梯度下降。</p>
+                <p><span class="org">地位</span> 反向传播算法的"第一发明人"，但当时几乎无人知晓。</p>`
+        },
+        rumelhart: {
+            nameEn: 'David Rumelhart · Geoffrey Hinton · Ronald Williams',
+            nameCn: '大卫·鲁梅尔哈特 · 杰弗里·辛顿 · 罗纳德·威廉姆斯',
+            year: '1986',
+            color: '#fdcb6e',
+            meta: '重新发现反向传播 · 推广',
+            bio: `<p><i class="fas fa-newspaper"></i> <strong>核心贡献</strong>：在《自然》杂志发表里程碑式论文。</p>
+                <div class="paper"><span class="en">📄 Learning representations by back-propagating errors</span><br><span class="cn">📄 通过反向传播误差学习表征</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何让整个学术界相信多层神经网络可以通过反向传播有效训练？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：重新发现并推广了反向传播算法，证明了多层神经网络可以通过计算输出误差对权重的梯度来有效训练。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：解决了非线性问题的学习难题，让整个学术界知道了"反向传播"这件事。</p>
+                <p><span class="org">地位</span> 虽然不是第一发明人，但让反向传播成为"深度学习的第一工具"。</p>`
+        },
+        lecun1989: {
+            nameEn: 'Yann LeCun',
+            nameCn: '杨立昆',
+            year: '1989',
+            color: '#fdcb6e',
+            meta: 'LeNet · 卷积神经网络',
+            bio: `<p><i class="fas fa-network-wired"></i> <strong>核心贡献</strong>：提出用反向传播训练的卷积神经网络。</p>
+                <div class="paper"><span class="en">📄 Backpropagation Applied to Handwritten Zip Code Recognition</span><br><span class="cn">📄 反向传播在手写邮政编码识别中的应用</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何通过"卷积"操作高效提取图像的局部特征？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：LeNet 成为 CNN 的鼻祖，卷积操作成为深度学习系统的重要算子。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：第一次将"卷积"+"反向传播"结合，用于实际应用（手写数字识别）。</p>
+                <p><span class="org">地位</span> 卷积神经网络的"之父"，现代视觉AI的奠基人。</p>`
+        },
+        hinton2006: {
+            nameEn: 'Geoffrey Hinton · Ruslan Salakhutdinov · Simon Osindero',
+            nameCn: '杰弗里·辛顿 · 鲁斯兰·萨拉赫丁诺夫 · 西蒙·奥辛德罗',
+            year: '2006',
+            color: '#fdcb6e',
+            meta: '深度信念网络 · 预训练',
+            bio: `<p><i class="fas fa-layer-group"></i> <strong>核心贡献</strong>：提出深度信念网络和逐层预训练方法。</p>
+                <div class="paper"><span class="en">📄 Reducing the Dimensionality of Data with Neural Networks</span><br><span class="cn">📄 用神经网络降低数据维度</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何训练多层神经网络，避免梯度消失导致的训练失败？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：表明多层前馈神经网络可以逐层有效预训练，主要研究深度信念网络（Deep Belief Nets）。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：让"深度"再次成为可能，打破了多层网络难以训练的魔咒，是"深度学习"这个词重新流行的起点。</p>
+                <p><span class="org">地位</span> 深度学习的"复兴者"，让学术界重新关注神经网络。</p>`
+        },
+        alexnet: {
+            nameEn: 'Alex Krizhevsky · Ilya Sutskever · Geoffrey Hinton',
+            nameCn: '亚历克斯·克里热夫斯基 · 伊利亚·苏茨克维 · 杰弗里·辛顿',
+            year: '2012',
+            color: '#e17055',
+            meta: 'AlexNet · ImageNet 冠军',
+            bio: `<p><i class="fas fa-crown"></i> <strong>核心贡献</strong>：设计 AlexNet 赢得 ImageNet 竞赛。</p>
+                <div class="paper"><span class="en">📄 ImageNet Classification with Deep Convolutional Neural Networks</span><br><span class="cn">📄 基于深度卷积神经网络的ImageNet分类</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何在百万级图像数据上高效训练深度网络，并避免过拟合？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：首次大规模使用 GPU + ReLU + Dropout，大幅降低错误率。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：引爆了深度学习革命，证明了"算法 + 数据 + 算力"三者的结合能产生奇迹。</p>
+                <p><span class="org">地位</span> 深度学习的"引爆点"，开启了 AI 的新时代。</p>`
+        },
+        imagenet: {
+            nameEn: 'ImageNet Era',
+            nameCn: 'ImageNet 时代',
+            year: '2013-2016',
+            color: '#e17055',
+            meta: 'GoogLeNet · VGG · ResNet · SENet',
+            bio: `<p><i class="fas fa-image"></i> <strong>核心贡献</strong>：通过 ImageNet 图像识别比赛，深度学习持续进步。</p>
+                <div class="paper"><span class="en">📄 历届冠军论文：GoogLeNet (2014) · VGG (2014) · ResNet (2015) · SENet (2017)</span><br><span class="cn">📄 历届冠军论文：GoogLeNet · VGG · ResNet · SENet</span></div>
+                <div class="problem"><strong>❓ 解决的核心问题：</strong>如何通过更深的网络、更优的结构和更强的硬件持续提升准确率？</div>
+                <p><i class="fas fa-arrow-right"></i> <strong>关键突破</strong>：网络结构（Inception、VGG、ResNet）、训练方法、GPU硬件不断进步。</p>
+                <p><i class="fas fa-lightbulb"></i> <strong>意义</strong>：深度学习征服计算机视觉，并开始向 NLP、语音等领域全面扩张。</p>
+                <p><span class="org">地位</span> 深度学习成为 AI 的主流范式，为 ChatGPT 等大模型铺平了道路。</p>`
+        }
+    };
+
+    // ========== 连线定义 ==========
+    const edgeDefinitions = [
+        // 家族传承连线（新增）
+        { from: 'boole', to: 'howard', type: 'edge-heritage' },
+        { from: 'howard', to: 'rumelhart', type: 'edge-heritage' },
+        { from: 'howard', to: 'hinton2006', type: 'edge-heritage' },
+        { from: 'howard', to: 'alexnet', type: 'edge-heritage' },
+        { from: 'boole', to: 'everest', type: 'edge-heritage' },
+        { from: 'boole', to: 'joan', type: 'edge-heritage' },
+
+        // 深度学习历史连线
+        { from: 'mcculloch', to: 'rosenblat', type: 'edge-origin' },
+        { from: 'rosenblat', to: 'widrow', type: 'edge-origin' },
+        { from: 'widrow', to: 'minsky', type: 'edge-early' },
+        { from: 'minsky', to: 'werbos', type: 'edge-early' },
+        { from: 'werbos', to: 'rumelhart', type: 'edge-breakthrough' },
+        { from: 'rumelhart', to: 'lecun1989', type: 'edge-breakthrough' },
+        { from: 'lecun1989', to: 'hinton2006', type: 'edge-breakthrough' },
+        { from: 'hinton2006', to: 'alexnet', type: 'edge-modern' },
+        { from: 'alexnet', to: 'imagenet', type: 'edge-modern' },
+    ];
+
+    // ========== 绘制连线 ==========
+    const svg = document.getElementById('graphSvg');
+    const edgesGroup = document.getElementById('edgesGroup');
+
+    function getNodeCenter(nodeId) {
+        const g = document.querySelector(`.node-group[data-id="${nodeId}"]`);
+        if (!g) return null;
+        const tr = g.getAttribute('transform');
+        const match = tr.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (!match) return null;
+        return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
+    }
+
+    function drawEdges() {
+        edgesGroup.innerHTML = '';
+        edgeDefinitions.forEach(def => {
+            const from = getNodeCenter(def.from);
+            const to = getNodeCenter(def.to);
+            if (!from || !to) return;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', from.x);
+            line.setAttribute('y1', from.y);
+            line.setAttribute('x2', to.x);
+            line.setAttribute('y2', to.y);
+            line.setAttribute('class', `edge ${def.type}`);
+            const markerMap = {
+                'edge-origin': 'url(#arrowOrigin)',
+                'edge-early': 'url(#arrowEarly)',
+                'edge-breakthrough': 'url(#arrowBreakthrough)',
+                'edge-modern': 'url(#arrowModern)',
+                'edge-heritage': 'url(#arrowHeritage)'
+            };
+            if (markerMap[def.type]) line.setAttribute('marker-end', markerMap[def.type]);
+            edgesGroup.appendChild(line);
+        });
+    }
+    drawEdges();
+
+    // ========== 拖拽联动 ==========
+    const container = document.getElementById('graphContainer');
+    let isDragging = false, currentTarget = null, offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+    const initialPositions = new Map();
+
+    document.querySelectorAll('.node-group').forEach(g => {
+        const tr = g.getAttribute('transform');
+        if (tr) initialPositions.set(g, tr);
+    });
+
+    function getCoords(e) {
+        const rect = svg.getBoundingClientRect();
+        const cx = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+        const cy = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+        const vb = svg.viewBox.baseVal;
+        return { x: cx * vb.width / rect.width, y: cy * vb.height / rect.height };
+    }
+
+    function onStart(e) {
+        const target = e.target.closest('.node-group');
+        if (!target) return;
+        e.preventDefault();
+        currentTarget = target;
+        const tr = target.getAttribute('transform');
+        const match = tr.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (match) { offsetX = parseFloat(match[1]); offsetY = parseFloat(match[2]); }
+        else { offsetX = 0; offsetY = 0; }
+        const coords = getCoords(e);
+        startX = coords.x - offsetX; startY = coords.y - offsetY;
+        isDragging = true;
+        svg.style.cursor = 'grabbing';
+    }
+
+    function onMove(e) {
+        if (!isDragging || !currentTarget) return;
+        e.preventDefault();
+        const coords = getCoords(e);
+        currentTarget.setAttribute('transform', `translate(${coords.x - startX}, ${coords.y - startY})`);
+        drawEdges();
+    }
+
+    function onEnd() { if (isDragging) { isDragging = false; currentTarget = null; svg.style.cursor = 'grab'; } }
+
+    svg.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    svg.addEventListener('touchstart', onStart, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+
+    svg.addEventListener('dblclick', () => {
+        document.querySelectorAll('.node-group').forEach(g => {
+            const init = initialPositions.get(g);
+            if (init) g.setAttribute('transform', init);
+        });
+        drawEdges();
+    });
+    svg.style.cursor = 'grab';
+
+    // ========== 模态框 ==========
+    const modal = document.getElementById('modal');
+    const modalClose = document.getElementById('modalClose');
+    const modalLabel = document.getElementById('modalLabel');
+    const modalNameEn = document.getElementById('modalNameEn');
+    const modalNameCn = document.getElementById('modalNameCn');
+    const modalYear = document.getElementById('modalYear');
+    const modalMeta = document.getElementById('modalMeta');
+    const modalBio = document.getElementById('modalBio');
+
+    function openModal(key) {
+        const data = people[key];
+        if (!data) return;
+        modalLabel.textContent = '🧬';
+        modalLabel.style.background = data.color || '#8b5cf6';
+        modalNameEn.textContent = data.nameEn;
+        modalNameCn.textContent = data.nameCn;
+        modalYear.textContent = data.year;
+        modalMeta.textContent = data.meta || '';
+        modalBio.innerHTML = data.bio || '<p>暂无详情</p>';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() { modal.classList.remove('active'); document.body.style.overflow = ''; }
+
+    document.querySelectorAll('.node-group').forEach(node => {
+        node.addEventListener('click', function(e) {
+            const key = this.dataset.person;
+            if (key && people[key]) openModal(key);
+        });
+    });
+
+    modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>

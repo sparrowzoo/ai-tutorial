@@ -4,7 +4,7 @@ from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 
 # 📍 在这里指定你要共享的目录路径
-SHARED_DIR = '/Users/zhanglizhi/20260728_atguigu'  # 改成你想要的路径
+SHARED_DIR = '/Users/zhanglizhi/20260708'  # 改成你想要的路径
 
 authorizer = DummyAuthorizer()
 

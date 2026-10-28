@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sigmoid → Tanh 变换</title>
+    <!-- 引入 MathJax 渲染 LaTeX 公式 -->
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async>
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+        body {
+            background: #f5f7fb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px 30px 35px;
+            max-width: 1000px;
+            width: 100%;
+        }
+        h1 {
+            font-weight: 400;
+            font-size: 24px;
+            color: #1e293b;
+            margin-top: 0;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            font-size: 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e9edf2;
+            padding-bottom: 16px;
+        }
+        .formula-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 24px 40px;
+        }
+        .formula-item {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            font-size: 16px;
+            color: #0f172a;
+        }
+        .formula-item .label {
+            font-weight: 500;
+            color: #475569;
+        }
+        .formula-item .math {
+            font-family: 'Times New Roman', serif;
+        }
+        .canvas-wrapper {
+            position: relative;
+            background: #fafcff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #fafcff;
+            cursor: crosshair;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px 40px;
+            margin-top: 24px;
+            justify-content: center;
+            background: #f8fafc;
+            padding: 18px 24px;
+            border-radius: 14px;
+        }
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 160px;
+            flex: 1;
+        }
+        .slider-group label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #0f172a;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .slider-group label span {
+            color: #2563eb;
+            font-weight: 600;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 4px 0;
+            accent-color: #2563eb;
+        }
+        .formula-box {
+            margin-top: 18px;
+            text-align: center;
+            font-size: 18px;
+            background: #f1f5f9;
+            padding: 12px 16px;
+            border-radius: 40px;
+            color: #0f172a;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        .formula-box .math {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            margin-top: 14px;
+            font-size: 14px;
+            color: #334155;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-swatch {
+            width: 28px;
+            height: 4px;
+            border-radius: 4px;
+        }
+        .color-swatch.dashed {
+            height: 0;
+            border-top: 3px dashed #94a3b8;
+            width: 28px;
+        }
+        .color-swatch.dotted {
+            height: 0;
+            border-top: 3px dotted #e11d48;
+            width: 28px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn-reset {
+            background: #e2e8f0;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1e293b;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-reset:hover {
+            background: #cbd5e1;
+        }
+        .btn-reset.primary {
+            background: #2563eb;
+            color: white;
+        }
+        .btn-reset.primary:hover {
+            background: #1d4ed8;
+        }
+        .param-values {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            font-size: 14px;
+            color: #475569;
+        }
+        .param-values span {
+            background: #eef2f6;
+            padding: 2px 12px;
+            border-radius: 16px;
+        }
+        @media (max-width: 700px) {
+            .controls {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .slider-group {
+                min-width: unset;
+            }
+            .formula-section {
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            }
+        }
+        /* 避免 MathJax 溢出 */
+        .formula-item .math svg {
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Sigmoid → Tanh 变换实验</h1>
+        <div class="subtitle">
+            通过调整参数，观察 <strong>σ(x)</strong> 如何变成 <strong>tanh(x)</strong> &nbsp;|&nbsp; 公式：<span class="math">tanh(x) = 2·σ(2x) − 1</span>
+        </div>
+
+        <!-- 公式展示区域（使用 MathJax） -->
+        <div class="formula-section">
+            <div class="formula-item">
+                <span class="label">Sigmoid 函数：</span>
+                <span class="math">\[
+                    \sigma(x) = \frac{1}{1 + e^{-x}}
+                \]</span>
+            </div>
+            <div class="formula-item">
+                <span class="label">双曲正切函数：</span>
+                <span class="math">\[
+                    \tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}
+                \]</span>
+            </div>
+            <div class="formula-item">
+                <span class="label">变换关系：</span>
+                <span class="math">\[
+                    \tanh(x) = 2\sigma(2x) - 1
+                \]</span>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper">
+            <canvas id="graphCanvas" width="900" height="500"></canvas>
+        </div>
+
+        <div class="controls">
+            <div class="slider-group">
+                <label>缩放 x <span id="kVal">1.0</span></label>
+                <input type="range" id="kSlider" min="0.1" max="5.0" step="0.05" value="1.0">
+            </div>
+            <div class="slider-group">
+                <label>缩放 y <span id="aVal">1.0</span></label>
+                <input type="range" id="aSlider" min="-3.0" max="3.0" step="0.05" value="1.0">
+            </div>
+            <div class="slider-group">
+                <label>平移 y <span id="bVal">0.0</span></label>
+                <input type="range" id="bSlider" min="-3.0" max="3.0" step="0.05" value="0.0">
+            </div>
+            <div class="btn-group">
+                <button class="btn-reset" id="resetTanhBtn">↺ 重置为 tanh</button>
+                <button class="btn-reset primary" id="resetSigmoidBtn">↺ 重置为 σ(x)</button>
+            </div>
+        </div>
+
+        <div class="formula-box" id="formulaDisplay">
+            f(x) = <span class="math">1.00 · σ(1.00·x) + 0.00</span>
+        </div>
+
+        <div class="legend">
+            <span class="legend-item"><span class="color-swatch" style="background:#2563eb;"></span> 当前变换 f(x)</span>
+            <span class="legend-item"><span class="color-swatch" style="background:#dc2626;"></span> tanh(x) 参考</span>
+            <span class="legend-item"><span class="color-swatch" style="background:#6b7280;"></span> σ(x) 参考</span>
+            <span class="legend-item"><span class="color-swatch dashed"></span> 渐近线 y=±1</span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('graphCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width,
+                H = canvas.height;
+
+            // DOM 元素
+            const kSlider = document.getElementById('kSlider');
+            const aSlider = document.getElementById('aSlider');
+            const bSlider = document.getElementById('bSlider');
+            const kVal = document.getElementById('kVal');
+            const aVal = document.getElementById('aVal');
+            const bVal = document.getElementById('bVal');
+            const formulaDisplay = document.getElementById('formulaDisplay');
+            const resetTanhBtn = document.getElementById('resetTanhBtn');
+            const resetSigmoidBtn = document.getElementById('resetSigmoidBtn');
+
+            // 坐标范围
+            const xMin = -8,
+                xMax = 8;
+            const yMin = -2.2,
+                yMax = 2.2;
+
+            // 边距
+            const pad = { top: 30, bottom: 30, left: 50, right: 50 };
+            const plotW = W - pad.left - pad.right;
+            const plotH = H - pad.top - pad.bottom;
+
+            function toPixelX(x) {
+                return pad.left + (x - xMin) / (xMax - xMin) * plotW;
+            }
+
+            function toPixelY(y) {
+                return pad.top + plotH - (y - yMin) / (yMax - yMin) * plotH;
+            }
+
+            function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
+            function tanh(x) { return Math.tanh(x); }
+
+            // ---- 绘图函数 ----
+            function drawGrid() {
+                ctx.save();
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 0.8;
+                for (let x = -6; x <= 6; x += 2) {
+                    if (x === 0) continue;
+                    const px = toPixelX(x);
+                    ctx.beginPath();
+                    ctx.moveTo(px, pad.top);
+                    ctx.lineTo(px, pad.top + plotH);
+                    ctx.stroke();
+                }
+                for (let y = -2; y <= 2; y += 0.5) {
+                    if (y === 0) continue;
+                    const py = toPixelY(y);
+                    ctx.beginPath();
+                    ctx.moveTo(pad.left, py);
+                    ctx.lineTo(pad.left + plotW, py);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            function drawAxes() {
+                ctx.save();
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 1.6;
+                const y0 = toPixelY(0);
+                const x0 = toPixelX(0);
+
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y0);
+                ctx.lineTo(pad.left + plotW, y0);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x0, pad.top);
+                ctx.lineTo(x0, pad.top + plotH);
+                ctx.stroke();
+
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.moveTo(pad.left + plotW - 4, y0 - 6);
+                ctx.lineTo(pad.left + plotW + 8, y0);
+                ctx.lineTo(pad.left + plotW - 4, y0 + 6);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x0 - 6, pad.top + 4);
+                ctx.lineTo(x0, pad.top - 8);
+                ctx.lineTo(x0 + 6, pad.top + 4);
+                ctx.fill();
+
+                ctx.font = '12px "Segoe UI", sans-serif';
+                ctx.fillStyle = '#475569';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                for (let x = -6; x <= 6; x += 2) {
+                    if (x === 0) continue;
+                    const px = toPixelX(x);
+                    ctx.fillText(x, px, y0 + 6);
+                }
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                for (let y = -2; y <= 2; y += 0.5) {
+                    if (y === 0) continue;
+                    const py = toPixelY(y);
+                    ctx.fillText(y.toFixed(1), pad.left - 10, py);
+                }
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+                ctx.fillText('0', x0 - 8, y0 + 6);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '14px "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText('x', pad.left + plotW - 6, y0 + 16);
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('f(x)', x0 - 18, pad.top + 6);
+                ctx.restore();
+            }
+
+            function drawAsymptotes() {
+                ctx.save();
+                ctx.setLineDash([6, 5]);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1.2;
+                const y1 = toPixelY(1);
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y1);
+                ctx.lineTo(pad.left + plotW, y1);
+                ctx.stroke();
+                const y_1 = toPixelY(-1);
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y_1);
+                ctx.lineTo(pad.left + plotW, y_1);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            }
+
+            function drawReference() {
+                const steps = 200;
+                // σ(x)
+                ctx.save();
+                ctx.strokeStyle = '#6b7280';
+                ctx.lineWidth = 1.8;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                for (let i = 0; i <= steps; i++) {
+                    const x = xMin + (i / steps) * (xMax - xMin);
+                    const y = sigmoid(x);
+                    const px = toPixelX(x);
+                    const py = toPixelY(y);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+                const labelX = 6.0;
+                const labelY = sigmoid(labelX);
+                const pxL = toPixelX(labelX);
+                const pyL = toPixelY(labelY);
+                ctx.fillStyle = '#6b7280';
+                ctx.font = 'bold 15px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('σ(x)', pxL + 6, pyL);
+                ctx.restore();
+
+                // tanh(x)
+                ctx.save();
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                for (let i = 0; i <= steps; i++) {
+                    const x = xMin + (i / steps) * (xMax - xMin);
+                    const y = tanh(x);
+                    const px = toPixelX(x);
+                    const py = toPixelY(y);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                const tX = 6.0;
+                const tY = tanh(tX);
+                const pTx = toPixelX(tX);
+                const pTy = toPixelY(tY);
+                ctx.fillStyle = '#dc2626';
+                ctx.font = 'bold 15px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('tanh(x)', pTx + 6, pTy - 4);
+                ctx.restore();
+
+                // 标记 (0,0.5) 和 (0,0)
+                ctx.save();
+                const x0 = toPixelX(0);
+                const py05 = toPixelY(0.5);
+                ctx.fillStyle = '#6b7280';
+                ctx.beginPath();
+                ctx.arc(x0, py05, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#475569';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('(0,0.5)', x0 + 6, py05 - 2);
+
+                const py0 = toPixelY(0);
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.arc(x0, py0, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#b91c1c';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('(0,0)', x0 - 6, py0 - 2);
+                ctx.restore();
+            }
+
+            function drawCurrent(k, A, B) {
+                ctx.save();
+                ctx.strokeStyle = '#2563eb';
+                ctx.lineWidth = 3.5;
+                ctx.shadowColor = 'rgba(37, 99, 235, 0.2)';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                const steps = 300;
+                let first = true;
+                for (let i = 0; i <= steps; i++) {
+                    const x = xMin + (i / steps) * (xMax - xMin);
+                    const y = A * sigmoid(k * x) + B;
+                    if (y > yMax || y < yMin) { first = true; continue; }
+                    const px = toPixelX(x);
+                    const py = toPixelY(y);
+                    if (first) { ctx.moveTo(px, py);
+                        first = false; } else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // 标注 f(x)
+                const labelX = 5.0;
+                const labelY = A * sigmoid(k * labelX) + B;
+                if (labelY > yMin && labelY < yMax) {
+                    const pLx = toPixelX(labelX);
+                    const pLy = toPixelY(labelY);
+                    ctx.fillStyle = '#2563eb';
+                    ctx.font = 'bold 16px sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText('f(x)', pLx + 6, pLy + 4);
+                }
+                ctx.restore();
+            }
+
+            function draw(k, A, B) {
+                ctx.clearRect(0, 0, W, H);
+                drawGrid();
+                drawAsymptotes();
+                drawAxes();
+                drawReference();
+                drawCurrent(k, A, B);
+
+                const kStr = k.toFixed(2);
+                const AStr = A.toFixed(2);
+                const BStr = B.toFixed(2);
+                let formula = `f(x) = ${AStr} · σ(${kStr}·x)`;
+                if (B > 0) formula += ` + ${BStr}`;
+                else if (B < 0) formula += ` − ${Math.abs(B).toFixed(2)}`;
+                formulaDisplay.innerHTML = `<span class="math">${formula}</span>`;
+            }
+
+            function update() {
+                const k = parseFloat(kSlider.value);
+                const A = parseFloat(aSlider.value);
+                const B = parseFloat(bSlider.value);
+                kVal.textContent = k.toFixed(2);
+                aVal.textContent = A.toFixed(2);
+                bVal.textContent = B.toFixed(2);
+                draw(k, A, B);
+            }
+
+            function resetToTanh() {
+                kSlider.value = '2.0';
+                aSlider.value = '2.0';
+                bSlider.value = '-1.0';
+                update();
+            }
+
+            function resetToSigmoid() {
+                kSlider.value = '1.0';
+                aSlider.value = '1.0';
+                bSlider.value = '0.0';
+                update();
+            }
+
+            kSlider.addEventListener('input', update);
+            aSlider.addEventListener('input', update);
+            bSlider.addEventListener('input', update);
+            resetTanhBtn.addEventListener('click', resetToTanh);
+            resetSigmoidBtn.addEventListener('click', resetToSigmoid);
+
+            // 初始化显示 sigmoid
+            resetToSigmoid();
+
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    const k = parseFloat(kSlider.value);
+                    const A = parseFloat(aSlider.value);
+                    const B = parseFloat(bSlider.value);
+                    draw(k, A, B);
+                }, 100);
+            });
+        })();
+    </script>
+</body>
+</html>

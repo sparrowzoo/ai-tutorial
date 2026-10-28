@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>离散卷积 · 图形化分步推演</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #f0f4fc;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 24px 48px rgba(0, 20, 40, 0.10), 0 8px 16px rgba(0, 0, 0, 0.04);
+            padding: 2.2rem 2.4rem 2.5rem;
+        }
+
+        /* ===== 标题与定义区 ===== */
+        .header-area {
+            border-bottom: 2px solid #eef2f7;
+            padding-bottom: 1rem;
+            margin-bottom: 1.4rem;
+        }
+        h1 {
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: #0b1e33;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            letter-spacing: -0.5px;
+        }
+        h1 small {
+            font-size: 1.05rem;
+            font-weight: 400;
+            color: #2c3e50;
+            background: #eef4ff;
+            padding: 0.2rem 1.2rem;
+            border-radius: 40px;
+        }
+        .definition-box {
+            background: linear-gradient(135deg, #e3edfe 0%, #d4e2fc 100%);
+            padding: 1.4rem 2.2rem;
+            border-radius: 24px;
+            margin: 0.8rem 0 0.2rem 0;
+            border-left: 10px solid #1a4b8c;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.6rem 1.8rem;
+            box-shadow: 0 4px 12px rgba(26, 75, 140, 0.08);
+        }
+        .definition-box .def-label {
+            font-weight: 700;
+            color: #0b2b4a;
+            font-size: 1.3rem;
+            letter-spacing: 0.5px;
+        }
+        .definition-box .def-formula {
+            background: white;
+            padding: 0.3rem 1.8rem;
+            border-radius: 60px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            font-size: 1.35rem;
+        }
+        .definition-box .def-note {
+            color: #1a4b8c;
+            font-weight: 500;
+            font-size: 1.05rem;
+            background: rgba(255,255,255,0.5);
+            padding: 0.1rem 1rem;
+            border-radius: 30px;
+        }
+
+        /* ===== 信号面板 ===== */
+        .signals-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem 3.5rem;
+            background: #f5f9ff;
+            padding: 1.2rem 2rem;
+            border-radius: 24px;
+            margin: 1.2rem 0 1.8rem 0;
+            align-items: center;
+            border: 1px solid #e8eff9;
+        }
+        .signal-box {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .signal-label {
+            font-weight: 600;
+            color: #1f3a5f;
+            font-size: 1.15rem;
+        }
+        .signal-array {
+            display: flex;
+            gap: 8px;
+            background: white;
+            padding: 0.3rem 1rem;
+            border-radius: 60px;
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.02);
+        }
+        .signal-array span {
+            background: #e9edf4;
+            padding: 0.2rem 1rem;
+            border-radius: 40px;
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-weight: 600;
+            color: #0b2b4a;
+            font-size: 1.05rem;
+        }
+
+        /* ===== 步进控制器 ===== */
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 1.2rem 0 1rem 0;
+            background: #fafcff;
+            padding: 0.6rem 1.6rem;
+            border-radius: 60px;
+            border: 1px solid #e2eaf5;
+        }
+        .step-counter {
+            font-weight: 600;
+            color: #1d3b5c;
+            font-size: 1.05rem;
+        }
+        .step-counter strong {
+            font-size: 1.5rem;
+            color: #00337a;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .nav-buttons button {
+            background: white;
+            border: 1px solid #cbd8e9;
+            padding: 0.4rem 1.4rem;
+            border-radius: 40px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: #1f3a5f;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .nav-buttons button:hover:not(:disabled) {
+            background: #e3edfe;
+            border-color: #7d9ed4;
+            transform: scale(0.97);
+        }
+        .nav-buttons button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #f0f3f8;
+        }
+        .nav-buttons .primary-btn {
+            background: #1a4b8c;
+            border-color: #1a4b8c;
+            color: white;
+        }
+        .nav-buttons .primary-btn:hover:not(:disabled) {
+            background: #0f3a6d;
+        }
+        .badge {
+            background: #dce6f5;
+            padding: 0.2rem 1.2rem;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        /* ===== 核心图形化展示 (SVG + 连线) ===== */
+        .visual-section {
+            background: #ffffff;
+            border-radius: 28px;
+            border: 1px solid #e9eff6;
+            padding: 2rem 2.2rem;
+            margin: 1.4rem 0 1rem 0;
+            box-shadow: 0 8px 20px rgba(0, 20, 40, 0.03);
+        }
+        .visual-title {
+            font-weight: 600;
+            color: #1f3a5f;
+            font-size: 1.05rem;
+            margin-bottom: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .visual-title .legend {
+            display: flex;
+            gap: 20px;
+            font-weight: 400;
+            font-size: 0.9rem;
+            color: #2a4c7a;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-item .dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .dot-pink { background: #f5a0b0; border: 2px solid #d45a6e; }
+        .dot-green { background: #8bc99b; border: 2px solid #3a8a4a; }
+        .dot-gray { background: #d5dce6; border: 2px solid #b0bccb; }
+        .dot-line { background: #d45a6e; border: 2px solid #b03a4e; width: 30px; height: 4px; border-radius: 4px; }
+
+        /* SVG 容器 */
+        .visual-svg-container {
+            position: relative;
+            width: 100%;
+            overflow-x: auto;
+            padding: 0.2rem 0;
+        }
+        .visual-svg-container svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            min-height: 200px;
+            background: #fafcff;
+            border-radius: 18px;
+            border: 1px solid #e8eff9;
+        }
+        .svg-cell {
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .svg-cell-bg {
+            rx: 10px;
+            ry: 10px;
+        }
+        .svg-cell.pink .svg-cell-bg { fill: #f5a0b0; stroke: #d45a6e; stroke-width: 2; }
+        .svg-cell.gray .svg-cell-bg { fill: #d5dce6; stroke: #b0bccb; stroke-width: 1.5; }
+        .svg-cell.green .svg-cell-bg { fill: #8bc99b; stroke: #3a8a4a; stroke-width: 2; }
+        .svg-cell .label { fill: #1f3a5f; }
+        .svg-cell.pink .label { fill: #4a1a2a; }
+        .svg-cell.green .label { fill: #1a3a22; }
+        .svg-cell.gray .label { fill: #6a7a8a; }
+
+        .conn-line {
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            fill: none;
+        }
+        .conn-line.active {
+            stroke: #d45a6e;
+            stroke-width: 3.5;
+            stroke-dasharray: none;
+            opacity: 0.9;
+        }
+
+        /* 公式展示 */
+        .formula-block {
+            background: #f2f8ff;
+            padding: 1.2rem 2rem;
+            border-radius: 20px;
+            margin: 1.4rem 0 0.6rem 0;
+            border-left: 8px solid #1a4b8c;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .formula-block .katex-display {
+            margin: 0.1rem 0;
+            width: 100%;
+        }
+        .placeholder-text {
+            color: #2c4f7a;
+            font-size: 1.1rem;
+        }
+
+        .info-mini {
+            font-size: 0.95rem;
+            color: #2a4c7a;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #e3ebf5;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.2rem 2.5rem;
+            background: #f8fbff;
+            padding: 0.8rem 1.2rem;
+            border-radius: 16px;
+        }
+        .info-mini span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .info-mini strong {
+            color: #0b2b4a;
+        }
+
+        /* ===== 底部：出处 + 说明 ===== */
+        .footer-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 1.4rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #e1e9f2;
+            gap: 0.8rem 1.5rem;
+        }
+        .footer-area .citation {
+            font-size: 0.9rem;
+            color: #4b5f7a;
+        }
+        .footer-area .citation strong {
+            color: #1a4b8c;
+        }
+        .footer-area .footnote {
+            font-size: 0.9rem;
+            color: #4b5f7a;
+            text-align: right;
+        }
+        .katex-error {
+            color: #b22222;
+            background: #ffe6e6;
+            padding: 0.2rem 0.8rem;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 700px) {
+            .container { padding: 1.2rem; }
+            .visual-section { padding: 1.2rem; }
+            .definition-box .def-formula { font-size: 1rem; padding: 0.2rem 1rem; }
+            .definition-box { padding: 1rem 1.2rem; }
+            h1 { font-size: 1.5rem; }
+            .visual-svg-container svg { min-height: 160px; }
+            .footer-area { flex-direction: column; align-items: flex-start; }
+            .footer-area .footnote { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <!-- 标题 + 定义区 -->
+    <div class="header-area">
+        <h1>
+            ⚡ 离散卷积 · 图形化分步推演
+            <small>粉色运算 · 绿色结果 · 连线映射</small>
+        </h1>
+        <div class="definition-box">
+            <span class="def-label">📐 定义</span>
+            <span class="def-formula" id="definitionFormula">
+                \( (f * g)[n] = \sum_{k} f[k] \cdot g[n-k] \)
+            </span>
+            <span class="def-note">滑动窗口 · 逐点乘加</span>
+        </div>
+    </div>
+
+    <!-- 信号显示 -->
+    <div class="signals-panel">
+        <div class="signal-box">
+            <span class="signal-label">\( f[n] \)</span>
+            <div class="signal-array" id="fDisplay"></div>
+        </div>
+        <div class="signal-box">
+            <span class="signal-label">\( g[n] \)</span>
+            <div class="signal-array" id="gDisplay"></div>
+        </div>
+    </div>
+
+    <!-- 步进控制器 -->
+    <div class="step-indicator">
+        <div class="step-counter">
+            ⏳ 步骤 <strong id="stepNum">0</strong> / <span id="totalSteps">0</span>
+            &nbsp;&nbsp; <span class="badge" id="statusBadge">准备</span>
+        </div>
+        <div class="nav-buttons">
+            <button id="resetBtn">⟲ 重置</button>
+            <button id="prevBtn" disabled>◀ 上一步</button>
+            <button id="nextBtn" class="primary-btn">下一步 ▶</button>
+        </div>
+    </div>
+
+    <!-- ===== 图形化展示区域 (含 SVG 连线) ===== -->
+    <div class="visual-section">
+        <div class="visual-title">
+            <span>🧮 卷积滑动窗口 · 映射连线</span>
+            <span class="legend">
+                <span class="legend-item"><span class="dot dot-pink"></span> 运算中</span>
+                <span class="legend-item"><span class="dot dot-green"></span> 结果</span>
+                <span class="legend-item"><span class="dot dot-gray"></span> 未参与</span>
+                <span class="legend-item"><span class="dot dot-line"></span> 映射</span>
+            </span>
+        </div>
+
+        <div class="visual-svg-container" id="svgContainer">
+            <svg id="visualSvg" viewBox="0 0 1000 320" preserveAspectRatio="xMidYMid meet">
+                <!-- 内容由 JS 动态生成 -->
+            </svg>
+        </div>
+
+        <!-- 公式展示 -->
+        <div class="formula-block" id="formulaBlock">
+            <span class="placeholder-text">👋 点击 <strong>“下一步”</strong> 开始推演</span>
+        </div>
+
+        <!-- 简明信息 -->
+        <div class="info-mini" id="miniInfo">
+            <span><strong>n</strong> = —</span>
+            <span><strong>有效 k</strong> = —</span>
+            <span><strong>累加和</strong> = —</span>
+        </div>
+    </div>
+
+    <!-- ===== 底部：出处 + 说明 ===== -->
+    <div class="footer-area">
+        <div class="citation">
+            📖 <strong>公式出处</strong>：离散卷积定义 —— 信号与系统 / 数字信号处理 标准定义
+            <span style="color:#6a7a8a; margin-left: 8px;">( Oppenheim, A. V., & Schafer, R. W. <em>Discrete-Time Signal Processing</em> )</span>
+        </div>
+        <div class="footnote">
+            ⚙️ 粉色高亮 \( f[k] \) 与 \( g[n-k] \) · 连线展示映射 · 绿色显示卷积结果
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ----- 输入信号 -----
+        const f = [1, 2, 3, 4, 5];
+        const g = [10, 20, 30];
+
+        // 预计算完整卷积
+        function computeFullConvolution(f, g) {
+            const result = [];
+            const nMax = f.length + g.length - 2;
+            for (let n = 0; n <= nMax; n++) {
+                let sum = 0;
+                for (let k = 0; k < f.length; k++) {
+                    const gIdx = n - k;
+                    if (gIdx >= 0 && gIdx < g.length) {
+                        sum += f[k] * g[gIdx];
+                    }
+                }
+                result.push(sum);
+            }
+            return result;
+        }
+        const fullConv = computeFullConvolution(f, g);
+        const totalSteps = fullConv.length;
+
+        // DOM 引用
+        const fDisplay = document.getElementById('fDisplay');
+        const gDisplay = document.getElementById('gDisplay');
+        const stepNumEl = document.getElementById('stepNum');
+        const totalStepsEl = document.getElementById('totalSteps');
+        const statusBadge = document.getElementById('statusBadge');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const svg = document.getElementById('visualSvg');
+        const formulaBlock = document.getElementById('formulaBlock');
+        const miniInfo = document.getElementById('miniInfo');
+
+        let currentStep = 0;
+
+        // 渲染信号数组 (顶部)
+        function renderSignals() {
+            fDisplay.innerHTML = f.map(v => `<span>${v}</span>`).join('');
+            gDisplay.innerHTML = g.map(v => `<span>${v}</span>`).join('');
+        }
+        renderSignals();
+
+        // 安全渲染 KaTeX
+        function renderLatex(latexString, container) {
+            try {
+                const html = katex.renderToString(latexString, { 
+                    displayMode: true, 
+                    throwOnError: true,
+                    trust: true
+                });
+                container.innerHTML = html;
+                return true;
+            } catch (e) {
+                container.innerHTML = `<span class="katex-error">⚠️ ${e.message}</span>`;
+                return false;
+            }
+        }
+
+        // ===== 核心：构建 SVG 图形 + 连线 =====
+        function buildSVG(step) {
+            const svgNS = 'http://www.w3.org/2000/svg';
+            svg.innerHTML = '';
+
+            if (step === 0) {
+                // 初始状态：显示所有元素，灰色，无连线
+                const fLen = f.length;
+                const gLen = g.length;
+                const colWidth = 90;
+                const startX = 100;
+
+                // 绘制 f 行 (y=40)
+                for (let i = 0; i < fLen; i++) {
+                    const x = startX + i * colWidth;
+                    const group = document.createElementNS(svgNS, 'g');
+                    group.setAttribute('class', 'svg-cell gray');
+                    group.innerHTML = `
+                        <rect class="svg-cell-bg" x="${x}" y="20" width="70" height="44" />
+                        <text class="label" x="${x+35}" y="48" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="600">f[${i}]=${f[i]}</text>
+                    `;
+                    svg.appendChild(group);
+                }
+
+                // 绘制 g 行 (y=140)
+                for (let i = 0; i < gLen; i++) {
+                    const x = startX + i * colWidth;
+                    const group = document.createElementNS(svgNS, 'g');
+                    group.setAttribute('class', 'svg-cell gray');
+                    group.innerHTML = `
+                        <rect class="svg-cell-bg" x="${x}" y="120" width="70" height="44" />
+                        <text class="label" x="${x+35}" y="148" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="600">g[${i}]=${g[i]}</text>
+                    `;
+                    svg.appendChild(group);
+                }
+
+                // 乘积行 (y=220)
+                const prodGroup = document.createElementNS(svgNS, 'g');
+                prodGroup.setAttribute('class', 'svg-cell gray');
+                prodGroup.innerHTML = `
+                    <rect class="svg-cell-bg" x="${startX}" y="220" width="200" height="44" />
+                    <text class="label" x="${startX+100}" y="242" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="600">等待开始...</text>
+                `;
+                svg.appendChild(prodGroup);
+
+                // 结果行 (y=280)
+                const resultGroup = document.createElementNS(svgNS, 'g');
+                resultGroup.setAttribute('class', 'svg-cell gray');
+                resultGroup.innerHTML = `
+                    <rect class="svg-cell-bg" x="${startX}" y="280" width="200" height="44" />
+                    <text class="label" x="${startX+100}" y="302" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="600">Σ = —</text>
+                `;
+                svg.appendChild(resultGroup);
+                return;
+            }
+
+            const n = step - 1;
+            const yValue = fullConv[n];
+
+            // ---- 计算参数 ----
+            const fLen = f.length;
+            const gLen = g.length;
+            const colWidth = 90;
+            const startX = 80;
+            const fY = 30;
+            const gY = 130;
+            const prodY = 230;
+            const resultY = 290;
+            const cellW = 70;
+            const cellH = 44;
+
+            // 收集有效映射
+            let activePairs = [];
+            for (let k = 0; k < fLen; k++) {
+                const gIdx = n - k;
+                if (gIdx >= 0 && gIdx < gLen) {
+                    activePairs.push({ k, gIdx, fVal: f[k], gVal: g[gIdx], prod: f[k] * g[gIdx] });
+                }
+            }
+
+            // ---- 1. 绘制 f 行 ----
+            for (let i = 0; i < fLen; i++) {
+                const x = startX + i * colWidth;
+                const isActive = activePairs.some(p => p.k === i);
+                const cls = isActive ? 'pink' : 'gray';
+                const group = document.createElementNS(svgNS, 'g');
+                group.setAttribute('class', `svg-cell ${cls}`);
+                group.innerHTML = `
+                    <rect class="svg-cell-bg" x="${x}" y="${fY}" width="${cellW}" height="${cellH}" />
+                    <text class="label" x="${x+cellW/2}" y="${fY+cellH/2}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="600">f[${i}]=${f[i]}</text>
+                `;
+                svg.appendChild(group);
+            }
+
+            // ---- 2. 绘制 g 行 ----
+            for (let j = 0; j < gLen; j++) {
+                const x = startX + j * colWidth;
+                const isActive = activePairs.some(p => p.gIdx === j);
+                const cls = isActive ? 'pink' : 'gray';
+                const group = document.createElementNS(svgNS, 'g');
+                group.setAttribute('class', `svg-cell ${cls}`);
+                group.innerHTML = `
+                    <rect class="svg-cell-bg" x="${x}" y="${gY}" width="${cellW}" height="${cellH}" />
+                    <text class="label" x="${x+cellW/2}" y="${gY+cellH/2}" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="600">g[${j}]=${g[j]}</text>
+                `;
+                svg.appendChild(group);
+            }
+
+            // ---- 3. 绘制连线 (从 f 到 g) ----
+            const fCenters = f.map((_, i) => ({ x: startX + i * colWidth + cellW/2, y: fY + cellH }));
+            const gCenters = g.map((_, j) => ({ x: startX + j * colWidth + cellW/2, y: gY }));
+
+            for (const pair of activePairs) {
+                const from = fCenters[pair.k];
+                const to = gCenters[pair.gIdx];
+                const line = document.createElementNS(svgNS, 'line');
+                line.setAttribute('x1', from.x);
+                line.setAttribute('y1', from.y);
+                line.setAttribute('x2', to.x);
+                line.setAttribute('y2', to.y);
+                line.setAttribute('class', 'conn-line active');
+                line.style.filter = 'drop-shadow(0 2px 6px rgba(212,90,110,0.3))';
+                svg.appendChild(line);
+            }
+
+            // ---- 4. 乘积行 ----
+            let prodText = '';
+            if (activePairs.length === 0) {
+                prodText = '无贡献';
+            } else {
+                prodText = activePairs.map(p => `${p.fVal}·${p.gVal}=${p.prod}`).join('  ');
+            }
+            const prodGroup = document.createElementNS(svgNS, 'g');
+            const prodX = startX;
+            const prodW = Math.max(300, activePairs.length * 100 + 40);
+            prodGroup.setAttribute('class', 'svg-cell');
+            prodGroup.innerHTML = `
+                <rect class="svg-cell-bg" x="${prodX}" y="${prodY}" width="${Math.min(prodW, 800)}" height="44" fill="#f2f8ff" stroke="#b0c4d8" stroke-width="1.5" rx="10" />
+                <text class="label" x="${prodX + Math.min(prodW, 800)/2}" y="${prodY+22}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="500" fill="#1f3a5f">${prodText}</text>
+            `;
+            svg.appendChild(prodGroup);
+
+            // ---- 5. 结果行 (绿色) ----
+            const total = activePairs.reduce((acc, p) => acc + p.prod, 0);
+            const resultGroup = document.createElementNS(svgNS, 'g');
+            resultGroup.setAttribute('class', 'svg-cell green');
+            const resX = startX;
+            resultGroup.innerHTML = `
+                <rect class="svg-cell-bg" x="${resX}" y="${resultY}" width="220" height="48" />
+                <text class="label" x="${resX+110}" y="${resultY+24}" text-anchor="middle" dominant-baseline="middle" font-size="16" font-weight="700" fill="#1a3a22">Σ = ${total}</text>
+            `;
+            svg.appendChild(resultGroup);
+
+            // ---- 更新公式和信息 ----
+            let formulaDisplay = `(f * g)[${n}] = `;
+            if (activePairs.length === 0) {
+                formulaDisplay += `0`;
+            } else {
+                const parts = activePairs.map(p => `${p.fVal} \\cdot ${p.gVal}`);
+                formulaDisplay += parts.join(' + ');
+            }
+            formulaDisplay += ` = ${total}`;
+            renderLatex(formulaDisplay, formulaBlock);
+
+            const validK = activePairs.map(p => p.k).join(', ');
+            miniInfo.innerHTML = `
+                <span><strong>n</strong> = ${n}</span>
+                <span><strong>有效 k</strong> = [ ${validK || '无'} ]</span>
+                <span><strong>累加和</strong> = ${total}</span>
+            `;
+
+            if (step === totalSteps) {
+                statusBadge.textContent = '✅ 完成';
+                statusBadge.style.background = '#c8e0c8';
+            } else {
+                statusBadge.textContent = `▶ n = ${n}`;
+                statusBadge.style.background = '#d4e2fc';
+            }
+        }
+
+        // 更新 UI
+        function updateUI(step) {
+            stepNumEl.textContent = step;
+            totalStepsEl.textContent = totalSteps;
+            prevBtn.disabled = (step <= 0);
+            nextBtn.disabled = (step >= totalSteps);
+
+            if (step === 0) {
+                statusBadge.textContent = '⏸️ 初始';
+                statusBadge.style.background = '#e3e9f2';
+                formulaBlock.innerHTML = `<span class="placeholder-text">👋 点击 <strong>“下一步”</strong> 开始推演</span>`;
+                miniInfo.innerHTML = `<span><strong>n</strong> = —</span><span><strong>有效 k</strong> = —</span><span><strong>累加和</strong> = —</span>`;
+                buildSVG(0);
+                return;
+            }
+            buildSVG(step);
+        }
+
+        // 导航
+        function goToStep(step) {
+            if (step < 0) step = 0;
+            if (step > totalSteps) step = totalSteps;
+            currentStep = step;
+            updateUI(currentStep);
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) goToStep(currentStep + 1);
+        }
+        function prevStep() {
+            if (currentStep > 0) goToStep(currentStep - 1);
+        }
+        function resetToInitial() {
+            goToStep(0);
+        }
+
+        nextBtn.addEventListener('click', nextStep);
+        prevBtn.addEventListener('click', prevStep);
+        resetBtn.addEventListener('click', resetToInitial);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') { e.preventDefault(); nextStep(); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+        });
+
+        // 初始化
+        goToStep(0);
+
+        // auto-render
+        function renderAllMath() {
+            if (window.renderMathInElement) {
+                try {
+                    window.renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ]
+                    });
+                } catch (e) {}
+            }
+        }
+        const origUpdate = updateUI;
+        updateUI = function(step) {
+            origUpdate(step);
+            setTimeout(renderAllMath, 30);
+        };
+        setTimeout(() => goToStep(currentStep), 40);
+
+        // 窗口resize时重新绘制SVG (保持比例)
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (currentStep > 0) buildSVG(currentStep);
+                else buildSVG(0);
+            }, 200);
+        });
+    })();
+</script>
+</body>
+</html>

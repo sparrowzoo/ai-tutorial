@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指数平滑 · 可拖拽滑动窗口</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            padding: 24px 24px 30px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-weight: 400;
+        }
+        .canvas-wrapper {
+            position: relative;
+            cursor: default;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #f0f0f0;
+        }
+        .drag-hint {
+            position: absolute;
+            bottom: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(44, 160, 44, 0.9);
+            color: #fff;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #f0f2f5;
+            padding: 6px 20px 6px 24px;
+            border-radius: 40px;
+        }
+        .slider-group label {
+            font-weight: 500;
+            color: #34495e;
+        }
+        .slider-group input[type="range"] {
+            width: 200px;
+            cursor: pointer;
+            accent-color: #d62728;
+        }
+        .slider-group span {
+            min-width: 32px;
+            font-weight: 600;
+            color: #d62728;
+        }
+
+        /* 公式面板 */
+        .formula-box {
+            margin-top: 20px;
+            padding: 16px 20px;
+            background: #f8faff;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #e9edf4;
+        }
+        .formula-box .main-formula {
+            font-size: 20px;
+            font-weight: 500;
+            color: #1a2634;
+            letter-spacing: 0.5px;
+        }
+        .formula-box .main-formula sub {
+            font-size: 14px;
+        }
+        .formula-box .params {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-top: 8px;
+        }
+        .formula-box .params .highlight-alpha {
+            color: #d62728;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        .formula-box .params .highlight-span {
+            color: #1f77b4;
+            font-weight: 700;
+        }
+        .formula-box .note-tip {
+            margin-top: 6px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .note {
+            margin-top: 14px;
+            font-size: 14px;
+            color: #7f8c8d;
+            text-align: center;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 14px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 18px;
+            height: 4px;
+            border-radius: 2px;
+            margin: 0 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>📈 指数平滑 · 拖拽窗口调整跨度</h2>
+    <div class="canvas-wrapper">
+        <canvas id="chartCanvas" width="900" height="480"></canvas>
+        <div class="drag-hint" id="dragHint">↔ 拖拽绿色虚线边界调整跨度</div>
+    </div>
+
+    <div class="controls">
+        <div class="slider-group">
+            <label for="spanSlider">平滑跨度 (span)：</label>
+            <input type="range" id="spanSlider" min="2" max="50" value="10" step="1">
+            <span id="spanValue">10</span>
+        </div>
+    </div>
+
+    <!-- 动态公式面板 -->
+    <div class="formula-box" id="formulaBox">
+        <div class="main-formula">
+            S<sub>t</sub> = α · Y<sub>t</sub> + (1 − α) · S<sub>t−1</sub>
+        </div>
+        <div class="params">
+            平滑系数 
+            <span class="highlight-alpha">α</span> 
+            = 2 / (span + 1) 
+            = 2 / (<span class="highlight-span" id="spanDisplayVal">10</span> + 1) 
+            = <span class="highlight-alpha" id="alphaDisplayVal">0.1818</span>
+            <span style="margin-left: 18px; color: #2ca02c; font-weight: 500;">
+                🌿 记忆 ≈ <span id="spanDisplayVal2">10</span> 个周期
+            </span>
+        </div>
+        <div class="note-tip">
+            💡 <strong>试试直接拖拽</strong> 图表中绿色的竖线（右边界），跨度会实时变化！
+        </div>
+    </div>
+
+    <div class="note">
+        <span class="legend-color" style="background:#1f77b4;"></span> 原始数据 &nbsp;|&nbsp;
+        <span class="legend-color" style="background:#d62728;height:3px;"></span> 指数平滑 &nbsp;|&nbsp;
+        <span class="legend-color" style="background:#2ca02c;height:3px;"></span> 可拖动的跨度边界
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- 1. 生成模拟数据 ----------
+        const N = 200;
+        const rawData = new Array(N);
+        for (let i = 0; i < N; i++) {
+            const trend = 20 + 0.3 * i;
+            const season = 8 * Math.sin(i / 4);
+            const noise = 4 * (Math.random() - 0.5) * 2;
+            rawData[i] = trend + season + noise;
+        }
+
+        // ---------- 2. 指数平滑计算 ----------
+        function computeEWMA(data, span) {
+            const alpha = 2 / (span + 1);
+            const smoothed = new Array(data.length);
+            smoothed[0] = data[0];
+            for (let i = 1; i < data.length; i++) {
+                smoothed[i] = alpha * data[i] + (1 - alpha) * smoothed[i - 1];
+            }
+            return smoothed;
+        }
+
+        // ---------- 3. Canvas 绘图 ----------
+        const canvas = document.getElementById('chartCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 900, H = 480;
+        canvas.width = W;
+        canvas.height = H;
+
+        const margin = { top: 30, bottom: 70, left: 50, right: 30 };
+        const plotW = W - margin.left - margin.right;
+        const plotH = H - margin.top - margin.bottom;
+
+        const xMin = 0, xMax = N - 1;
+        let yMin = Infinity, yMax = -Infinity;
+        for (let i = 0; i < N; i++) {
+            const v = rawData[i];
+            if (v < yMin) yMin = v;
+            if (v > yMax) yMax = v;
+        }
+        const yPad = (yMax - yMin) * 0.1;
+        yMin -= yPad;
+        yMax += yPad;
+
+        function toPixelX(index) {
+            return margin.left + (index / (N - 1)) * plotW;
+        }
+        function toPixelY(value) {
+            return margin.top + plotH - ((value - yMin) / (yMax - yMin)) * plotH;
+        }
+        // 反向映射：像素X -> 索引值
+        function toIndex(pixelX) {
+            return ((pixelX - margin.left) / plotW) * (N - 1);
+        }
+
+        // ---------- 4. 核心绘图函数 ----------
+        function draw(span) {
+            const smoothed = computeEWMA(rawData, span);
+            const alpha = 2 / (span + 1);
+
+            ctx.clearRect(0, 0, W, H);
+
+            // ---- 网格 ----
+            ctx.save();
+            ctx.strokeStyle = '#e8e8e8';
+            ctx.lineWidth = 0.8;
+            ctx.setLineDash([4, 4]);
+            for (let i = 0; i <= 5; i++) {
+                const yVal = yMin + (i / 5) * (yMax - yMin);
+                const yPix = toPixelY(yVal);
+                ctx.beginPath();
+                ctx.moveTo(margin.left, yPix);
+                ctx.lineTo(W - margin.right, yPix);
+                ctx.stroke();
+                ctx.fillStyle = '#666';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(yVal.toFixed(1), margin.left - 8, yPix);
+            }
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // ---- X轴标签 ----
+            ctx.save();
+            ctx.fillStyle = '#333';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('时间 / 索引', W / 2, H - 12);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('数值', 16, H / 2);
+            ctx.restore();
+
+            // ============================================================
+            //  可拖动的滑动窗口标注 (左边界固定0，右边界=span)
+            // ============================================================
+            const spanIdx = Math.min(Math.round(span), N - 1);
+            const xStart = toPixelX(0);
+            const xEnd = toPixelX(spanIdx);
+            const yBase = margin.top + plotH;
+
+            // ① 半透明绿色背景
+            ctx.save();
+            ctx.fillStyle = 'rgba(44, 160, 44, 0.08)';
+            ctx.fillRect(xStart, margin.top, xEnd - xStart, plotH);
+            ctx.restore();
+
+            // ② 左边虚线 (固定0) 和 右边虚线 (可拖拽)
+            ctx.save();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#2ca02c';
+            ctx.lineWidth = 1.8;
+            ctx.globalAlpha = 0.7;
+            
+            // 左边界
+            ctx.beginPath();
+            ctx.moveTo(xStart, margin.top);
+            ctx.lineTo(xStart, yBase);
+            ctx.stroke();
+            
+            // 右边界 (可拖拽，绘制稍粗以便于点击)
+            ctx.strokeStyle = '#2ca02c';
+            ctx.lineWidth = 3.2;
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(xEnd, margin.top);
+            ctx.lineTo(xEnd, yBase);
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // ③ 在右边界旁边画一个小拖拽手柄图标 (两条小竖线)
+            ctx.save();
+            ctx.fillStyle = '#2ca02c';
+            ctx.globalAlpha = 0.8;
+            const handleX = xEnd;
+            for (let off = -6; off <= 6; off += 12) {
+                ctx.fillRect(handleX + off - 1.5, (margin.top + yBase) / 2 - 12, 3, 24);
+            }
+            ctx.restore();
+
+            // ④ 底部跨度标尺（带箭头和文字）
+            ctx.save();
+            const arrowY = yBase + 16;
+            ctx.strokeStyle = '#2ca02c';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(xStart, arrowY);
+            ctx.lineTo(xEnd, arrowY);
+            ctx.stroke();
+
+            // 左箭头
+            ctx.beginPath();
+            ctx.moveTo(xStart, arrowY - 5);
+            ctx.lineTo(xStart - 8, arrowY);
+            ctx.lineTo(xStart, arrowY + 5);
+            ctx.stroke();
+            // 右箭头
+            ctx.beginPath();
+            ctx.moveTo(xEnd, arrowY - 5);
+            ctx.lineTo(xEnd + 8, arrowY);
+            ctx.lineTo(xEnd, arrowY + 5);
+            ctx.stroke();
+
+            ctx.fillStyle = '#1a5c1a';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(
+                `📏 跨度窗口 = ${spanIdx} 个周期  (α = ${alpha.toFixed(4)})`,
+                (xStart + xEnd) / 2,
+                arrowY + 8
+            );
+            ctx.restore();
+
+            // ---- 绘制原始数据 (蓝色) ----
+            ctx.save();
+            ctx.strokeStyle = '#1f77b4';
+            ctx.lineWidth = 1.8;
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            for (let i = 0; i < N; i++) {
+                const xPix = toPixelX(i);
+                const yPix = toPixelY(rawData[i]);
+                if (i === 0) ctx.moveTo(xPix, yPix);
+                else ctx.lineTo(xPix, yPix);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // ---- 绘制指数平滑 (红色) ----
+            ctx.save();
+            ctx.strokeStyle = '#d62728';
+            ctx.lineWidth = 3.5;
+            ctx.shadowColor = 'rgba(214,39,40,0.15)';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            for (let i = 0; i < N; i++) {
+                const xPix = toPixelX(i);
+                const yPix = toPixelY(smoothed[i]);
+                if (i === 0) ctx.moveTo(xPix, yPix);
+                else ctx.lineTo(xPix, yPix);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // ---- 图例 ----
+            ctx.save();
+            const legX = W - 170, legY = 20;
+            ctx.font = '13px sans-serif';
+            ctx.strokeStyle = '#1f77b4';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(legX, legY + 6);
+            ctx.lineTo(legX + 30, legY + 6);
+            ctx.stroke();
+            ctx.fillStyle = '#1f77b4';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('原始数据', legX + 38, legY + 6);
+
+            ctx.strokeStyle = '#d62728';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(legX, legY + 28);
+            ctx.lineTo(legX + 30, legY + 28);
+            ctx.stroke();
+            ctx.fillStyle = '#d62728';
+            ctx.fillText('指数平滑', legX + 38, legY + 28);
+
+            ctx.strokeStyle = '#2ca02c';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(legX, legY + 50);
+            ctx.lineTo(legX + 30, legY + 50);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#2ca02c';
+            ctx.fillText('拖拽右边界调整', legX + 38, legY + 50);
+            ctx.restore();
+
+            // 返回右边界的像素位置，供拖拽事件使用
+            return { xEnd };
+        }
+
+        // ---------- 5. 拖拽交互逻辑 ----------
+        let currentSpan = 10;
+        let isDragging = false;
+        let dragTargetX = 0;
+
+        function updateAll(span) {
+            const clamped = Math.min(50, Math.max(2, Math.round(span)));
+            currentSpan = clamped;
+            
+            // 重绘图表
+            draw(clamped);
+            
+            // 更新滑块
+            const slider = document.getElementById('spanSlider');
+            slider.value = clamped;
+            document.getElementById('spanValue').textContent = clamped;
+            
+            // 更新公式面板
+            const alpha = 2 / (clamped + 1);
+            document.getElementById('spanDisplayVal').textContent = clamped;
+            document.getElementById('spanDisplayVal2').textContent = clamped;
+            document.getElementById('alphaDisplayVal').textContent = alpha.toFixed(4);
+        }
+
+        // 获取鼠标在 canvas 上的坐标
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+                e.preventDefault();
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        // 判断是否点击到右边界（容差 15px）
+        function isOnRightEdge(mouseX) {
+            const spanIdx = Math.min(Math.round(currentSpan), N - 1);
+            const xEnd = toPixelX(spanIdx);
+            return Math.abs(mouseX - xEnd) < 15;
+        }
+
+        // ---- 鼠标/触摸事件绑定 ----
+        function onPointerDown(e) {
+            e.preventDefault();
+            const pos = getMousePos(e);
+            if (isOnRightEdge(pos.x)) {
+                isDragging = true;
+                canvas.style.cursor = 'ew-resize';
+                document.getElementById('dragHint').style.opacity = '0.3';
+                // 保存点击时的参考X
+                dragTargetX = pos.x;
+            }
+        }
+
+        function onPointerMove(e) {
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            if (isDragging) {
+                // 根据鼠标X计算新的span
+                const rawIdx = toIndex(pos.x);
+                const newSpan = Math.min(50, Math.max(2, Math.round(rawIdx)));
+                if (newSpan !== currentSpan) {
+                    updateAll(newSpan);
+                }
+            } else {
+                // 改变光标样式
+                if (isOnRightEdge(pos.x)) {
+                    canvas.style.cursor = 'ew-resize';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            }
+        }
+
+        function onPointerUp(e) {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'default';
+                document.getElementById('dragHint').style.opacity = '0.7';
+            }
+        }
+
+        // 注册事件 (鼠标 + 触摸)
+        canvas.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+
+        canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp, { passive: false });
+
+        // ---------- 6. 滑块交互（与拖拽双向绑定） ----------
+        const slider = document.getElementById('spanSlider');
+        slider.addEventListener('input', function(e) {
+            const val = parseInt(e.target.value, 10);
+            if (val !== currentSpan) {
+                updateAll(val);
+            }
+        });
+
+        // ---------- 7. 初始化 ----------
+        updateAll(10); // 默认 span = 10
+
+        console.log('✅ 已加载！您可以直接拖拽图表上的绿色虚线边界来调整跨度。');
+    })();
+</script>
+</body>
+</html>

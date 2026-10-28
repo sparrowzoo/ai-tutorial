@@ -55,9 +55,12 @@ if __name__ == '__main__':
         print()
 
     # 4.3 查看状态字典
+
     print("状态字典：")
     print(model.state_dict())
 
     # 5. 查看模型结构和参数数量
     from torchsummary import summary
-    summary(model, input_size=(3,), batch_size=10, device='cpu')
+    summary(model, input_size=(3,), batch_size=10,device="cuda")
+    print("修改参数类型",model.linear1.weight.device)
+

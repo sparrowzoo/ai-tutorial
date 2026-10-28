@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 人物关系图谱 · 完整姓名版</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, system-ui, sans-serif; user-select: none; }
+        body { background: #f0f3f9; display: flex; justify-content: center; padding: 24px 16px; min-height: 100vh; }
+        .container { max-width: 1400px; width: 100%; background: white; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,20,40,0.12); padding: 24px 20px 40px; }
+        h1 { font-size: 2rem; font-weight: 650; color: #0b1c33; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+        .subtitle { color: #3b4a5e; border-left: 4px solid #3b82f6; padding-left: 20px; margin-bottom: 18px; background: #f0f6ff; border-radius: 0 16px 16px 0; padding: 10px 22px; font-weight: 400; line-height: 1.6; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-bottom: 18px; padding: 8px 4px; }
+        .legend { display: flex; flex-wrap: wrap; gap: 14px 28px; background: #f8fafc; padding: 8px 20px; border-radius: 60px; border: 1px solid #e2e8f0; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 500; color: #1e293b; }
+        .legend-line { width: 28px; height: 3px; border-radius: 6px; }
+        .legend-line.mentor { background: #7c3aed; }
+        .legend-line.postdoc { background: #ec4899; }
+        .legend-line.collab { background: #0ea5e9; }
+        .legend-line.transfer { background: #f59e0b; }
+        .legend-line.found { background: #10b981; }
+        .legend-line.conflict { background: #ef4444; }
+        .legend-line.influence { background: #8b5cf6; }
+        .legend-line.champion { background: #f43f5e; }
+
+        .graph-container { position: relative; width: 100%; height: 1050px; background: #fafcff; border-radius: 28px; border: 1px solid #e9edf4; overflow: hidden; touch-action: none; }
+        #graphSvg { display: block; width: 100%; height: 100%; background: #fafcff; cursor: grab; }
+        #graphSvg:active { cursor: grabbing; }
+
+        .node-group { cursor: grab; }
+        .node-group:active { cursor: grabbing; }
+        .node-bg { fill: white; stroke: #dce3ef; stroke-width: 1.8; rx: 20; ry: 20; transition: stroke 0.2s, filter 0.2s; }
+        .node-group:hover .node-bg { stroke: #3b82f6; filter: drop-shadow(0 4px 12px rgba(0,20,40,0.12)); }
+
+        .avatar-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            letter-spacing: 0.2px;
+        }
+
+        .node-cn { font-weight: 600; font-size: 9.5px; fill: #0b1c33; text-anchor: middle; pointer-events: none; }
+        .node-en { font-size: 7.5px; fill: #5e6f87; text-anchor: middle; pointer-events: none; }
+        .node-title { font-size: 7px; fill: #8b5cf6; text-anchor: middle; pointer-events: none; font-weight: 500; }
+
+        .edge { stroke-width: 2.5; fill: none; stroke-linecap: round; opacity: 0.8; }
+        .edge-mentor { stroke: #7c3aed; stroke-dasharray: 6 5; }
+        .edge-postdoc { stroke: #ec4899; stroke-dasharray: 4 6; }
+        .edge-collab { stroke: #0ea5e9; stroke-dasharray: 4 4; }
+        .edge-transfer { stroke: #f59e0b; stroke-dasharray: 8 6; }
+        .edge-found { stroke: #10b981; stroke-dasharray: 4 5; }
+        .edge-conflict { stroke: #ef4444; stroke-dasharray: 3 6; }
+        .edge-influence { stroke: #8b5cf6; stroke-dasharray: 2 6; stroke-width: 2; }
+        .edge-champion { stroke: #f43f5e; stroke-dasharray: 4 8; stroke-width: 2; }
+
+        /* 模态框 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 20, 40, 0.4);
+            backdrop-filter: blur(6px);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 20px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            max-width: 720px;
+            width: 100%;
+            max-height: 90vh;
+            border-radius: 40px;
+            padding: 32px 36px 36px 36px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.3);
+            animation: modalFade 0.25s ease;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        @keyframes modalFade {
+            from { opacity: 0; transform: scale(0.95) translateY(16px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-close {
+            position: sticky;
+            top: 0;
+            float: right;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 60px;
+            width: 42px;
+            height: 42px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #1e293b;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .modal-close:hover { background: #e2e8f0; transform: rotate(90deg); }
+
+        .modal-header {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-right: 50px;
+        }
+
+        .modal-label {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            color: white;
+        }
+
+        .modal-name {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: #0b1c33;
+            line-height: 1.2;
+        }
+
+        .modal-name .cn {
+            font-size: 1.1rem;
+            font-weight: 400;
+            color: #475569;
+            margin-left: 10px;
+        }
+        .modal-name .en {
+            font-size: 1rem;
+            font-weight: 400;
+            color: #6b7b93;
+            margin-left: 8px;
+        }
+
+        .modal-meta {
+            color: #475569;
+            font-size: 0.95rem;
+            margin-top: 2px;
+        }
+
+        .modal-bio {
+            border-top: 1px solid #e9edf4;
+            padding-top: 20px;
+            line-height: 1.8;
+            color: #1e293b;
+            font-size: 0.95rem;
+        }
+
+        .modal-bio i { color: #2563eb; width: 24px; }
+        .modal-bio .highlight { background: #fef9c3; padding: 0 4px; font-weight: 500; }
+        .modal-bio .org { display: inline-block; background: #eef3fa; padding: 0 12px; border-radius: 30px; font-size: 0.8rem; font-weight: 500; }
+        .modal-bio p { margin-bottom: 8px; }
+
+        .modal-bio::-webkit-scrollbar { width: 6px; }
+        .modal-bio::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .modal-bio::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        @media (max-width:700px) {
+            .container { padding:12px; }
+            h1 { font-size:1.4rem; }
+            .graph-container { height:800px; }
+            .legend { gap:8px 16px; padding:6px 14px; }
+            .modal { padding: 24px 20px; max-width: 100%; }
+            .modal-header { flex-wrap: wrap; gap: 12px; }
+            .modal-name { font-size: 1.3rem; }
+            .modal-name .cn { font-size: 0.9rem; display: block; margin-left: 0; }
+            .modal-name .en { font-size: 0.85rem; display: block; margin-left: 0; }
+            .modal-label { width: 56px; height: 56px; font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1><span>🏆 AI 人物关系图谱</span><span style="font-size:1rem;font-weight:400;color:#3b4a5e;margin-left:6px;">完整姓名 · 中文+英文</span></h1>
+    <div class="subtitle"><i class="fas fa-arrows-alt"></i> 拖拽标签 → 连线自动跟随 · 点击查看履历</div>
+    <div class="toolbar">
+        <div class="legend">
+            <span class="legend-item"><span class="legend-line mentor"></span> 师承</span>
+            <span class="legend-item"><span class="legend-line postdoc"></span> 博士后</span>
+            <span class="legend-item"><span class="legend-line collab"></span> 共事</span>
+            <span class="legend-item"><span class="legend-line transfer"></span> 转会</span>
+            <span class="legend-item"><span class="legend-line found"></span> 创立</span>
+            <span class="legend-item"><span class="legend-line conflict"></span> 决裂</span>
+            <span class="legend-item"><span class="legend-line influence"></span> 技术影响</span>
+            <span class="legend-item"><span class="legend-line champion"></span> ImageNet 冠军链</span>
+        </div>
+        <div style="margin-left:auto;font-size:.8rem;color:#6b7b93;"><i class="fas fa-sync-alt"></i> 双击空白重置</div>
+    </div>
+
+    <div class="graph-container" id="graphContainer">
+        <svg id="graphSvg" viewBox="0 0 1450 1050" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <marker id="arrowMentor" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/></marker>
+                <marker id="arrowPostdoc" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ec4899"/></marker>
+                <marker id="arrowCollab" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0ea5e9"/></marker>
+                <marker id="arrowTransfer" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b"/></marker>
+                <marker id="arrowFound" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981"/></marker>
+                <marker id="arrowConflict" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/></marker>
+                <marker id="arrowInfluence" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#8b5cf6"/></marker>
+                <marker id="arrowChampion" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f43f5e"/></marker>
+            </defs>
+            <g id="edgesGroup"></g>
+            <g id="nodesGroup">
+                <!-- ===== 第一行：核心奠基人 ===== -->
+                <g class="node-group" data-person="feifei" data-id="feifei" transform="translate(100, 55)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e74c3c;">📸 李飞飞</text>
+                    <text class="node-en" x="0" y="16">Fei-Fei Li</text>
+                    <text class="node-title" x="0" y="30">ImageNet 创建者</text>
+                </g>
+
+                <g class="node-group" data-person="hinton" data-id="hinton" transform="translate(300, 55)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#3b5998;">🧠 杰弗里·辛顿</text>
+                    <text class="node-en" x="0" y="16">Geoffrey Hinton</text>
+                    <text class="node-title" x="0" y="30">深度学习之父</text>
+                </g>
+
+                <g class="node-group" data-person="lecun" data-id="lecun" transform="translate(520, 55)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#2ecc71;">💻 杨立昆</text>
+                    <text class="node-en" x="0" y="16">Yann LeCun</text>
+                    <text class="node-title" x="0" y="30">CNN 之父 · 博士后</text>
+                </g>
+
+                <g class="node-group" data-person="bengio" data-id="bengio" transform="translate(740, 55)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#9b59b6;">📖 约书亚·本吉奥</text>
+                    <text class="node-en" x="0" y="16">Yoshua Bengio</text>
+                    <text class="node-title" x="0" y="30">图灵奖 · 三巨头</text>
+                </g>
+
+                <g class="node-group" data-person="andrew" data-id="andrew" transform="translate(960, 55)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#f39c12;">📘 吴恩达</text>
+                    <text class="node-en" x="0" y="16">Andrew Ng</text>
+                    <text class="node-title" x="0" y="30">Google Brain 联合创始人</text>
+                </g>
+
+                <!-- ===== 第二行：辛顿博士生 ===== -->
+                <g class="node-group" data-person="ilya" data-id="ilya" transform="translate(60, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e67e22;">🔥 伊利亚·苏茨克维</text>
+                    <text class="node-en" x="0" y="16">Ilya Sutskever</text>
+                    <text class="node-title" x="0" y="30">OpenAI 前首席科学家</text>
+                </g>
+
+                <g class="node-group" data-person="alexk" data-id="alexk" transform="translate(250, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#f39c12;">⚡ 亚历克斯·克里热夫斯基</text>
+                    <text class="node-en" x="0" y="16">Alex Krizhevsky</text>
+                    <text class="node-title" x="0" y="30">AlexNet 缔造者</text>
+                </g>
+
+                <g class="node-group" data-person="ruslan" data-id="ruslan" transform="translate(440, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#1abc9c;">🧬 鲁斯兰·萨拉赫丁诺夫</text>
+                    <text class="node-en" x="0" y="16">Ruslan Salakhutdinov</text>
+                    <text class="node-title" x="0" y="30">前苹果AI总监</text>
+                </g>
+
+                <g class="node-group" data-person="zemel" data-id="zemel" transform="translate(630, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#3498db;">⚖️ 理查德·泽梅尔</text>
+                    <text class="node-en" x="0" y="16">Richard Zemel</text>
+                    <text class="node-title" x="0" y="30">多伦多大学教授</text>
+                </g>
+
+                <g class="node-group" data-person="brendon" data-id="brendon" transform="translate(820, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e74c3c;">🧬 布伦丹·弗雷</text>
+                    <text class="node-en" x="0" y="16">Brendan Frey</text>
+                    <text class="node-title" x="0" y="30">Deep Genomics CEO</text>
+                </g>
+
+                <g class="node-group" data-person="radford" data-id="radford" transform="translate(1010, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#8e44ad;">📊 拉德福德·尼尔</text>
+                    <text class="node-en" x="0" y="16">Radford Neal</text>
+                    <text class="node-title" x="0" y="30">贝叶斯权威</text>
+                </g>
+
+                <g class="node-group" data-person="yeewhy" data-id="yeewhy" transform="translate(1200, 230)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#2ecc71;">📚 郑宇怀</text>
+                    <text class="node-en" x="0" y="16">Yee Whye Teh</text>
+                    <text class="node-title" x="0" y="30">牛津教授 · DeepMind</text>
+                </g>
+
+                <!-- ===== 第三行：更多博士生 ===== -->
+                <g class="node-group" data-person="simon" data-id="simon" transform="translate(250, 400)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e67e22;">🎯 西蒙·奥辛德罗</text>
+                    <text class="node-en" x="0" y="16">Simon Osindero</text>
+                    <text class="node-title" x="0" y="30">DeepMind 研究总监</text>
+                </g>
+
+                <!-- ===== 第四行：ImageNet冠军人物 ===== -->
+                <g class="node-group" data-person="szegedy" data-id="szegedy" transform="translate(60, 570)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#3498db;">🔍 克里斯蒂安·泽格迪</text>
+                    <text class="node-en" x="0" y="16">Christian Szegedy</text>
+                    <text class="node-title" x="0" y="30">GoogLeNet · 2014 🏆</text>
+                </g>
+
+                <g class="node-group" data-person="karen" data-id="karen" transform="translate(250, 570)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#9b59b6;">📐 卡伦·西蒙扬</text>
+                    <text class="node-en" x="0" y="16">Karen Simonyan</text>
+                    <text class="node-title" x="0" y="30">VGGNet · 2014 🥈</text>
+                    <text class="node-title" x="0" y="42" font-size="6.5">分类亚军 · 定位冠军</text>
+                </g>
+
+                <g class="node-group" data-person="zisserman" data-id="zisserman" transform="translate(440, 570)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#1abc9c;">🎓 安德鲁·齐瑟曼</text>
+                    <text class="node-en" x="0" y="16">Andrew Zisserman</text>
+                    <text class="node-title" x="0" y="30">VGG 创始人</text>
+                </g>
+
+                <g class="node-group" data-person="hekaiming" data-id="hekaiming" transform="translate(630, 570)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e74c3c;">🏆 何恺明</text>
+                    <text class="node-en" x="0" y="16">Kaiming He</text>
+                    <text class="node-title" x="0" y="30">ResNet · 2015 🏆</text>
+                </g>
+
+                <g class="node-group" data-person="hu" data-id="hu" transform="translate(820, 570)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#2ecc71;">🎯 胡杰</text>
+                    <text class="node-en" x="0" y="16">Jie Hu</text>
+                    <text class="node-title" x="0" y="30">SENet · 2017 🏆</text>
+                </g>
+
+                <!-- ===== 第五行：大模型时代人物 ===== -->
+                <g class="node-group" data-person="sam" data-id="sam" transform="translate(60, 760)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#f1c40f;">📈 萨姆·奥特曼</text>
+                    <text class="node-en" x="0" y="16">Sam Altman</text>
+                    <text class="node-title" x="0" y="30">OpenAI CEO</text>
+                </g>
+
+                <g class="node-group" data-person="demis" data-id="demis" transform="translate(250, 760)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#8e44ad;">♟️ 德米斯·哈萨比斯</text>
+                    <text class="node-en" x="0" y="16">Demis Hassabis</text>
+                    <text class="node-title" x="0" y="30">DeepMind 创始人</text>
+                </g>
+
+                <g class="node-group" data-person="dario" data-id="dario" transform="translate(440, 760)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e67e22;">🛡️ 达里奥·阿莫迪</text>
+                    <text class="node-en" x="0" y="16">Dario Amodei</text>
+                    <text class="node-title" x="0" y="30">Anthropic 创始人</text>
+                </g>
+
+                <g class="node-group" data-person="karpathy" data-id="karpathy" transform="translate(630, 760)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#3498db;">🧑‍🏫 安德烈·卡帕西</text>
+                    <text class="node-en" x="0" y="16">Andrej Karpathy</text>
+                    <text class="node-title" x="0" y="30">AI 教育家</text>
+                </g>
+
+                <g class="node-group" data-person="elon" data-id="elon" transform="translate(820, 760)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#e74c3c;">🚀 埃隆·马斯克</text>
+                    <text class="node-en" x="0" y="16">Elon Musk</text>
+                    <text class="node-title" x="0" y="30">xAI / 特斯拉</text>
+                </g>
+
+                <g class="node-group" data-person="page" data-id="page" transform="translate(1010, 760)">
+                    <rect class="node-bg" x="-80" y="-55" width="160" height="90" />
+                    <text class="avatar-label" x="0" y="-20" style="fill:#2c3e50;">🌐 拉里·佩奇</text>
+                    <text class="node-en" x="0" y="16">Larry Page</text>
+                    <text class="node-title" x="0" y="30">谷歌联合创始人</text>
+                </g>
+            </g>
+        </svg>
+    </div>
+    <div style="text-align:center;font-size:.85rem;color:#475569;margin-top:14px;">
+        <i class="fas fa-mouse-pointer"></i> 拖拽标签 → 连线自动跟随 · 点击查看履历 · 双击空白重置
+    </div>
+
+    <!-- ===== 模态框 ===== -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+            <div class="modal-header">
+                <div class="modal-label" id="modalLabel" style="background:#3b82f6;">👤</div>
+                <div>
+                    <div class="modal-name" id="modalName">
+                        <span class="cn" id="modalNameCn">中文名</span>
+                        <span class="en" id="modalNameEn">English Name</span>
+                    </div>
+                    <div class="modal-meta" id="modalMeta">机构 · 头衔</div>
+                </div>
+            </div>
+            <div class="modal-bio" id="modalBio"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== 人物数据（完整姓名） ==========
+    const people = {
+        feifei: {
+            cn: '李飞飞', en: 'Fei-Fei Li', color: '#e74c3c', meta: '斯坦福大学 · World Labs 创始人',
+            bio: `<p><i class="fas fa-database"></i> <strong>ImageNet 创建者</strong>（2009），为深度学习提供海量视觉训练数据。</p>
+                <p><i class="fas fa-history"></i> 发起 ImageNet 挑战赛 (ILSVRC)，成为AI发展的核心驱动力。</p>
+                <p><i class="fas fa-chalkboard-teacher"></i> 斯坦福教授，CS231n 课程联合设计者（与卡帕西）。</p>
+                <p><span class="org">冠军链</span> 她的数据集孕育了所有历届冠军。</p>`
+        },
+        hinton: {
+            cn: '杰弗里·辛顿', en: 'Geoffrey Hinton', color: '#3b5998', meta: '多伦多大学 · 谷歌大脑',
+            bio: `<p><i class="fas fa-graduation-cap"></i> <strong>深度学习之父</strong>，反向传播推广者（1986）。</p>
+                <p><i class="fas fa-trophy"></i> 2012年与伊利亚、亚历克斯开发 <span class="highlight">AlexNet</span>，在ImageNet夺冠。</p>
+                <p><i class="fas fa-building"></i> 2013年将 DNNResearch 以约4400万美元卖给谷歌。</p>
+                <p><i class="fas fa-award"></i> 2018年图灵奖得主，2024年诺贝尔物理学奖得主。</p>
+                <p><span class="org">师承</span> 培养了伊利亚·苏茨克维、亚历克斯·克里热夫斯基等数十位顶尖AI学者。</p>
+                <p><span class="org">博士后</span> 杨立昆（Yann LeCun）曾跟随辛顿做博士后研究。</p>`
+        },
+        lecun: {
+            cn: '杨立昆', en: 'Yann LeCun', color: '#2ecc71', meta: 'NYU · Meta AI 首席科学家',
+            bio: `<p><i class="fas fa-microchip"></i> <strong>卷积神经网络 (CNN) 之父</strong>，1989年首次将反向传播应用于CNN。</p>
+                <p><i class="fas fa-robot"></i> 1998年提出 <span class="highlight">LeNet-5</span>，现代CNN架构鼻祖。</p>
+                <p><i class="fas fa-building"></i> 现任 Meta AI 首席科学家。</p>
+                <p><i class="fas fa-award"></i> 2018年图灵奖得主。</p>
+                <p><span class="org">博士后</span> 曾跟随 Geoffrey Hinton 做博士后研究，与辛顿、本吉奥并称"深度学习三巨头"。</p>`
+        },
+        bengio: {
+            cn: '约书亚·本吉奥', en: 'Yoshua Bengio', color: '#9b59b6', meta: '蒙特利尔大学教授 · 图灵奖得主',
+            bio: `<p><i class="fas fa-award"></i> <strong>2018年图灵奖得主</strong>，与辛顿、杨立昆并称"深度学习三巨头"。</p>
+                <p><i class="fas fa-building"></i> 蒙特利尔大学教授，MILA创始人和科学主任。</p>
+                <p><i class="fas fa-book"></i> 在深度生成模型、注意力机制和表示学习方面有众多奠基性贡献。</p>`
+        },
+        andrew: {
+            cn: '吴恩达', en: 'Andrew Ng', color: '#f39c12', meta: 'Google Brain 联合创始人 · 斯坦福教授',
+            bio: `<p><i class="fas fa-robot"></i> <strong>Google Brain 联合创始人</strong>（2011）。</p>
+                <p><i class="fas fa-chalkboard-teacher"></i> 斯坦福大学教授，Coursera 联合创始人。</p>
+                <p><i class="fas fa-graduation-cap"></i> 培养了大批AI人才，其《机器学习》课程是无数人的入门第一课。</p>
+                <p><span class="org">共事</span> 与辛顿、杨立昆、本吉奥等同为深度学习早期推动者。</p>`
+        },
+        ilya: {
+            cn: '伊利亚·苏茨克维', en: 'Ilya Sutskever', color: '#e67e22', meta: 'SSI 创始人 · 前 OpenAI 首席科学家',
+            bio: `<p><i class="fas fa-bolt"></i> <strong>AlexNet 核心贡献者</strong>（2012），ImageNet夺冠。</p>
+                <p><i class="fas fa-arrow-right"></i> 2013年加入 <span class="org">Google Brain</span>。</p>
+                <p><i class="fas fa-rocket"></i> 2015年联合创立 <span class="org">OpenAI</span>，主导 GPT 系列与 ChatGPT。</p>
+                <p><i class="fas fa-lightbulb"></i> 2024年创立 <span class="org">Safe Superintelligence (SSI)</span>。</p>
+                <p><span class="org">师承</span> 辛顿博士生。<span class="org">冠军链</span> 2012 ImageNet 冠军 (AlexNet)。</p>`
+        },
+        alexk: {
+            cn: '亚历克斯·克里热夫斯基', en: 'Alex Krizhevsky', color: '#f39c12', meta: 'Two Bear Capital 合伙人',
+            bio: `<p><i class="fas fa-crown"></i> <strong>AlexNet 命名者</strong>，2012年ImageNet夺冠功臣。</p>
+                <p><i class="fas fa-arrow-right"></i> 2013年加入 <span class="org">Google Brain</span>。</p>
+                <p><i class="fas fa-walking"></i> 2017年离开谷歌，转向投资领域。</p>
+                <p><span class="org">师承</span> 辛顿博士生。<span class="org">冠军链</span> 2012 ImageNet 冠军 (AlexNet)。</p>`
+        },
+        ruslan: {
+            cn: '鲁斯兰·萨拉赫丁诺夫', en: 'Ruslan Salakhutdinov', color: '#1abc9c', meta: '前苹果AI总监',
+            bio: `<p><i class="fas fa-brain"></i> <strong>深度玻尔兹曼机（DBM）共同提出者</strong>。</p>
+                <p><i class="fas fa-building"></i> 曾任苹果公司AI研究总监，现为卡内基梅隆大学教授。</p>
+                <p><span class="org">师承</span> 辛顿博士生。</p>`
+        },
+        zemel: {
+            cn: '理查德·泽梅尔', en: 'Richard Zemel', color: '#3498db', meta: '多伦多大学教授',
+            bio: `<p><i class="fas fa-scale-balanced"></i> <strong>算法公平性与机器学习</strong>领域权威。</p>
+                <p><i class="fas fa-building"></i> 多伦多大学计算机科学教授，NSF AI研究所主任。</p>
+                <p><span class="org">师承</span> 辛顿博士生。</p>`
+        },
+        brendon: {
+            cn: '布伦丹·弗雷', en: 'Brendan Frey', color: '#e74c3c', meta: 'Deep Genomics 创始人',
+            bio: `<p><i class="fas fa-dna"></i> <strong>AI + 基因组学先驱</strong>，将深度学习应用于遗传病研究。</p>
+                <p><i class="fas fa-building"></i> 创立 <span class="org">Deep Genomics</span>。</p>
+                <p><span class="org">师承</span> 辛顿博士生。</p>`
+        },
+        radford: {
+            cn: '拉德福德·尼尔', en: 'Radford Neal', color: '#8e44ad', meta: '多伦多大学荣誉教授',
+            bio: `<p><i class="fas fa-chart-line"></i> <strong>贝叶斯推理和蒙特卡洛方法</strong>领域权威。</p>
+                <p><i class="fas fa-book"></i> 著有《贝叶斯推理的马尔可夫链蒙特卡洛方法》。</p>
+                <p><span class="org">师承</span> 辛顿博士生。</p>`
+        },
+        yeewhy: {
+            cn: '郑宇怀', en: 'Yee Whye Teh', color: '#2ecc71', meta: '牛津教授 · DeepMind 研究科学家',
+            bio: `<p><i class="fas fa-book"></i> <strong>深度信念网络共同提出者</strong>。</p>
+                <p><i class="fas fa-building"></i> 牛津大学统计学教授，同时在 <span class="org">Google DeepMind</span> 担任研究科学家。</p>
+                <p><span class="org">师承</span> 辛顿博士生。</p>`
+        },
+        simon: {
+            cn: '西蒙·奥辛德罗', en: 'Simon Osindero', color: '#e67e22', meta: 'DeepMind 研究总监',
+            bio: `<p><i class="fas fa-crown"></i> <strong>深度信念网络共同提出者</strong>。</p>
+                <p><i class="fas fa-building"></i> <span class="org">Google DeepMind</span> 研究总监，谷歌首席研究科学家。</p>
+                <p><span class="org">师承</span> 辛顿博士生。</p>`
+        },
+        szegedy: {
+            cn: '克里斯蒂安·泽格迪', en: 'Christian Szegedy', color: '#3498db', meta: 'Google · 计算机视觉研究员',
+            bio: `<p><i class="fas fa-layer-group"></i> <strong>GoogLeNet (Inception) 提出者</strong>，2014年ImageNet <span class="highlight">分类冠军</span>。</p>
+                <p><i class="fas fa-crown"></i> 提出 Inception 模块，大幅提升网络宽度与性能。</p>
+                <p><span class="org">冠军链</span> 2014 ImageNet 分类冠军 (GoogLeNet)。</p>`
+        },
+        karen: {
+            cn: '卡伦·西蒙扬', en: 'Karen Simonyan', color: '#9b59b6', meta: 'DeepMind 研究科学家',
+            bio: `<p><i class="fas fa-file-alt"></i> <strong>VGGNet 第一作者</strong>，2014年ImageNet <span class="highlight">定位冠军</span>。</p>
+                <p><i class="fas fa-graduation-cap"></i> 牛津大学博士，导师为 Andrew Zisserman。</p>
+                <p><i class="fas fa-arrow-right"></i> 博士毕业后加入 <span class="org">Google DeepMind</span>。</p>
+                <p><span class="org">冠军链</span> 2014 ImageNet 定位冠军 (VGGNet)。</p>`
+        },
+        zisserman: {
+            cn: '安德鲁·齐瑟曼', en: 'Andrew Zisserman', color: '#1abc9c', meta: '牛津大学教授 · VGG 创始人',
+            bio: `<p><i class="fas fa-university"></i> <strong>牛津大学视觉几何组 (VGG) 创始人</strong>，计算机视觉领域权威。</p>
+                <p><i class="fas fa-trophy"></i> 指导 Karen Simonyan 开发 VGGNet，2014年ImageNet <span class="highlight">定位冠军</span>。</p>
+                <p><span class="org">冠军链</span> 2014 ImageNet 定位冠军 (VGGNet)。</p>`
+        },
+        hekaiming: {
+            cn: '何恺明', en: 'Kaiming He', color: '#e74c3c', meta: 'FAIR 研究科学家',
+            bio: `<p><i class="fas fa-layer-group"></i> <strong>ResNet 提出者</strong>（2015），引入残差连接。</p>
+                <p><i class="fas fa-trophy"></i> 2015年 ImageNet 夺冠，<span class="highlight">首次超越人类</span>。</p>
+                <p><i class="fas fa-building"></i> MSRA → Meta FAIR。</p>
+                <p><span class="org">冠军链</span> 2015 ImageNet 冠军 (ResNet)。</p>`
+        },
+        hu: {
+            cn: '胡杰', en: 'Jie Hu', color: '#2ecc71', meta: 'Momenta · 牛津大学',
+            bio: `<p><i class="fas fa-bullseye"></i> <strong>SENet 提出者</strong>，2017年ImageNet最后一届夺冠。</p>
+                <p><i class="fas fa-microchip"></i> 提出 <span class="highlight">Squeeze-and-Excitation (SE) 模块</span>，引入通道注意力。</p>
+                <p><span class="org">冠军链</span> 2017 ImageNet 冠军 (SENet)。</p>`
+        },
+        sam: {
+            cn: '萨姆·奥特曼', en: 'Sam Altman', color: '#f1c40f', meta: 'OpenAI CEO',
+            bio: `<p><i class="fas fa-lightbulb"></i> <strong>OpenAI 联合创始人兼CEO</strong>（2015）。</p>
+                <p><i class="fas fa-handshake"></i> 与马斯克共同构思 OpenAI，挖角伊利亚加入。</p>
+                <p><i class="fas fa-globe"></i> 主导 ChatGPT 发布（2022）。</p>`
+        },
+        demis: {
+            cn: '德米斯·哈萨比斯', en: 'Demis Hassabis', color: '#8e44ad', meta: 'Google DeepMind CEO',
+            bio: `<p><i class="fas fa-chess"></i> <strong>DeepMind 联合创始人</strong>（2010）。</p>
+                <p><i class="fas fa-crown"></i> 开发 <span class="highlight">AlphaGo</span>（2016），击败李世石。</p>
+                <p><i class="fas fa-dna"></i> 主导 <span class="highlight">AlphaFold</span>，获2024年诺贝尔化学奖。</p>`
+        },
+        dario: {
+            cn: '达里奥·阿莫迪', en: 'Dario Amodei', color: '#e67e22', meta: 'Anthropic 创始人',
+            bio: `<p><i class="fas fa-shield-alt"></i> <strong>Anthropic 创始人</strong>（2021），前 OpenAI 研究副总裁。</p>
+                <p><i class="fas fa-arrow-right"></i> 2016年加入 OpenAI，主导 GPT-2、GPT-3 安全研究。</p>
+                <p><i class="fas fa-handshake"></i> 2020年离开 OpenAI，创立 <span class="org">Anthropic</span>。</p>`
+        },
+        karpathy: {
+            cn: '安德烈·卡帕西', en: 'Andrej Karpathy', color: '#3498db', meta: 'AI 教育家 · 前特斯拉AI总监',
+            bio: `<p><i class="fas fa-chalkboard-teacher"></i> 斯坦福 CS231n 联合设计者（师从李飞飞）。</p>
+                <p><i class="fas fa-arrow-right"></i> 2015年成为 <span class="org">OpenAI</span> 创始成员。</p>
+                <p><i class="fas fa-car"></i> 2017年被马斯克挖至 <span class="org">特斯拉</span> 任AI总监。</p>
+                <p><i class="fas fa-sync-alt"></i> 2023年重返 OpenAI，后加入 <span class="org">Anthropic</span>。</p>`
+        },
+        elon: {
+            cn: '埃隆·马斯克', en: 'Elon Musk', color: '#e74c3c', meta: 'xAI · 特斯拉 · SpaceX',
+            bio: `<p><i class="fas fa-rocket"></i> <strong>特斯拉、SpaceX、xAI 创始人</strong>。</p>
+                <p><i class="fas fa-handshake"></i> 2015年与奥特曼共同创立 OpenAI，2018年退出。</p>
+                <p><i class="fas fa-robot"></i> 创立 xAI，推出 Grok。</p>`
+        },
+        page: {
+            cn: '拉里·佩奇', en: 'Larry Page', color: '#2c3e50', meta: '谷歌联合创始人 · Alphabet',
+            bio: `<p><i class="fas fa-globe"></i> <strong>谷歌联合创始人</strong>（1998）。</p>
+                <p><i class="fas fa-building"></i> 2014年主导收购 DeepMind。</p>
+                <p><i class="fas fa-exclamation-triangle"></i> 与马斯克因AI理念彻底决裂。</p>`
+        }
+    };
+
+    // ========== 连线定义 ==========
+    const edgeDefinitions = [
+        { from: 'hinton', to: 'ilya', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'alexk', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'ruslan', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'zemel', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'brendon', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'radford', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'yeewhy', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'simon', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'lecun', type: 'edge-postdoc', marker: 'url(#arrowPostdoc)' },
+        { from: 'feifei', to: 'karpathy', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'zisserman', to: 'karen', type: 'edge-mentor', marker: 'url(#arrowMentor)' },
+        { from: 'hinton', to: 'bengio', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'lecun', to: 'bengio', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'andrew', to: 'hinton', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'andrew', to: 'lecun', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'andrew', to: 'bengio', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'ilya', to: 'alexk', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'demis', to: 'elon', type: 'edge-collab', marker: 'url(#arrowCollab)' },
+        { from: 'ilya', to: 'sam', type: 'edge-transfer', marker: 'url(#arrowTransfer)' },
+        { from: 'dario', to: 'sam', type: 'edge-transfer', marker: 'url(#arrowTransfer)' },
+        { from: 'karpathy', to: 'dario', type: 'edge-transfer', marker: 'url(#arrowTransfer)' },
+        { from: 'sam', to: 'dario', type: 'edge-found', marker: 'url(#arrowFound)' },
+        { from: 'demis', to: 'sam', type: 'edge-found', marker: 'url(#arrowFound)' },
+        { from: 'elon', to: 'page', type: 'edge-conflict', marker: 'url(#arrowConflict)' },
+        { from: 'lecun', to: 'hekaiming', type: 'edge-influence', marker: 'url(#arrowInfluence)' },
+        { from: 'hekaiming', to: 'ilya', type: 'edge-influence', marker: 'url(#arrowInfluence)' },
+        { from: 'feifei', to: 'ilya', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+        { from: 'feifei', to: 'alexk', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+        { from: 'feifei', to: 'szegedy', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+        { from: 'feifei', to: 'karen', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+        { from: 'feifei', to: 'zisserman', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+        { from: 'feifei', to: 'hekaiming', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+        { from: 'feifei', to: 'hu', type: 'edge-champion', marker: 'url(#arrowChampion)' },
+    ];
+
+    // ========== 绘制连线 ==========
+    const svg = document.getElementById('graphSvg');
+    const edgesGroup = document.getElementById('edgesGroup');
+
+    function getNodeCenter(nodeId) {
+        const g = document.querySelector(`.node-group[data-id="${nodeId}"]`);
+        if (!g) return null;
+        const tr = g.getAttribute('transform');
+        const match = tr.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (!match) return null;
+        return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
+    }
+
+    function drawEdges() {
+        edgesGroup.innerHTML = '';
+        edgeDefinitions.forEach(def => {
+            const from = getNodeCenter(def.from);
+            const to = getNodeCenter(def.to);
+            if (!from || !to) return;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', from.x);
+            line.setAttribute('y1', from.y);
+            line.setAttribute('x2', to.x);
+            line.setAttribute('y2', to.y);
+            line.setAttribute('class', `edge ${def.type}`);
+            if (def.marker) line.setAttribute('marker-end', def.marker);
+            edgesGroup.appendChild(line);
+        });
+    }
+    drawEdges();
+
+    // ========== 拖拽联动 ==========
+    const container = document.getElementById('graphContainer');
+    let isDragging = false, currentTarget = null, offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+    const initialPositions = new Map();
+
+    document.querySelectorAll('.node-group').forEach(g => {
+        const tr = g.getAttribute('transform');
+        if (tr) initialPositions.set(g, tr);
+    });
+
+    function getCoords(e) {
+        const rect = svg.getBoundingClientRect();
+        const cx = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+        const cy = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+        const vb = svg.viewBox.baseVal;
+        return { x: cx * vb.width / rect.width, y: cy * vb.height / rect.height };
+    }
+
+    function onStart(e) {
+        const target = e.target.closest('.node-group');
+        if (!target) return;
+        e.preventDefault();
+        currentTarget = target;
+        const tr = target.getAttribute('transform');
+        const match = tr.match(/translate\(([^,]+),\s*([^)]+)\)/);
+        if (match) { offsetX = parseFloat(match[1]); offsetY = parseFloat(match[2]); }
+        else { offsetX = 0; offsetY = 0; }
+        const coords = getCoords(e);
+        startX = coords.x - offsetX; startY = coords.y - offsetY;
+        isDragging = true;
+        svg.style.cursor = 'grabbing';
+    }
+
+    function onMove(e) {
+        if (!isDragging || !currentTarget) return;
+        e.preventDefault();
+        const coords = getCoords(e);
+        currentTarget.setAttribute('transform', `translate(${coords.x - startX}, ${coords.y - startY})`);
+        drawEdges();
+    }
+
+    function onEnd() { if (isDragging) { isDragging = false; currentTarget = null; svg.style.cursor = 'grab'; } }
+
+    svg.addEventListener('mousedown', onStart);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    svg.addEventListener('touchstart', onStart, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+
+    svg.addEventListener('dblclick', () => {
+        document.querySelectorAll('.node-group').forEach(g => {
+            const init = initialPositions.get(g);
+            if (init) g.setAttribute('transform', init);
+        });
+        drawEdges();
+    });
+    svg.style.cursor = 'grab';
+
+    // ========== 模态框 ==========
+    const modal = document.getElementById('modal');
+    const modalClose = document.getElementById('modalClose');
+    const modalLabel = document.getElementById('modalLabel');
+    const modalNameCn = document.getElementById('modalNameCn');
+    const modalNameEn = document.getElementById('modalNameEn');
+    const modalMeta = document.getElementById('modalMeta');
+    const modalBio = document.getElementById('modalBio');
+
+    function openModal(key) {
+        const data = people[key];
+        if (!data) return;
+        modalLabel.textContent = data.cn.charAt(0) || '👤';
+        modalLabel.style.background = data.color || '#3b82f6';
+        modalNameCn.textContent = data.cn;
+        modalNameEn.textContent = data.en;
+        modalMeta.textContent = data.meta || '';
+        modalBio.innerHTML = data.bio || '<p>暂无详情</p>';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() { modal.classList.remove('active'); document.body.style.overflow = ''; }
+
+    document.querySelectorAll('.node-group').forEach(node => {
+        node.addEventListener('click', function(e) {
+            const key = this.dataset.person;
+            if (key && people[key]) openModal(key);
+        });
+    });
+
+    modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>
